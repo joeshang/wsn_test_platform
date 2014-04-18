@@ -1,0 +1,102 @@
+/************************************************************
+ * libpcap Related Header Descriptions
+ ************************************************************/
+
+/* libcap File Header */
+struct pcap_file_header
+{
+    bpf_u_int32 magic;
+    u_short     version_major;
+    u_short     version_minor;
+    bpf_int32   thiszone;           /* gmt to local correction */
+    bpf_u_int32 sigfigs;            /* accuracy of timestamps */
+    bpf_u_int32 snaplen;            /* max length saved portion of each packet */
+    bpf_u_int32 linktype;           /* data link type */
+}
+
+/* libcap Packet Header */
+struct pcap_pkthdr
+{
+    struct timeval ts;              /* time stamp */
+    bpf_u_int32 caplen;             /* length of portion present */
+    bpf_u_int32 len;                /* length of this packet */
+};
+
+/************************************************************
+ * Packet Data Header Descriptions
+ ************************************************************/
+
+/* 10Mb/s Ethernet Header */
+struct ether_header
+{
+  u_int8_t  ether_dhost[ETH_ALEN];	/* destination eth addr	*/
+  u_int8_t  ether_shost[ETH_ALEN];	/* source ether addr	*/
+  u_int16_t ether_type;		        /* packet type ID field	*/
+} __attribute__ ((__packed__));
+
+
+/* IP Header */
+#define	IP_RF 0x8000			/* reserved fragment flag */
+#define	IP_DF 0x4000			/* dont fragment flag */
+#define	IP_MF 0x2000			/* more fragments flag */
+#define	IP_OFFMASK 0x1fff		/* mask for fragmenting bits */
+
+struct ip
+{
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    unsigned int ip_hl:4;		/* header length */
+    unsigned int ip_v:4;		/* version */
+#endif
+#if __BYTE_ORDER == __BIG_ENDIAN
+    unsigned int ip_v:4;		/* version */
+    unsigned int ip_hl:4;		/* header length */
+#endif
+    u_int8_t ip_tos;			/* type of service */
+    u_short ip_len;			    /* total length */
+    u_short ip_id;			    /* identification */
+    u_short ip_off;			    /* fragment offset field */
+    u_int8_t ip_ttl;		    /* time to live */
+    u_int8_t ip_p;			    /* protocol */
+    u_short ip_sum;			    /* checksum */
+    struct in_addr ip_src, ip_dst;	/* source and dest address */
+  };
+
+
+/* TCP Header */
+#define TH_FIN	0x01
+#define TH_SYN	0x02
+#define TH_RST	0x04
+#define TH_PUSH	0x08
+#define TH_ACK	0x10
+#define TH_URG	0x20
+
+typedef	u_int32_t tcp_seq;
+
+struct tcphdr
+{
+    u_int16_t th_sport;		    /* source port */
+    u_int16_t th_dport;		    /* destination port */
+    tcp_seq th_seq;		        /* sequence number */
+    tcp_seq th_ack;		        /* acknowledgement number */
+#  if __BYTE_ORDER == __LITTLE_ENDIAN
+    u_int8_t th_x2:4;		    /* (unused) */
+    u_int8_t th_off:4;		    /* data offset */
+#  endif
+#  if __BYTE_ORDER == __BIG_ENDIAN
+    u_int8_t th_off:4;		    /* data offset */
+    u_int8_t th_x2:4;		    /* (unused) */
+#  endif
+    u_int8_t th_flags;
+    u_int16_t th_win;		    /* window */
+    u_int16_t th_sum;		    /* checksum */
+    u_int16_t th_urp;		    /* urgent pointer */
+};
+
+/* UDP Header */
+struct udphdr
+{
+  u_int16_t uh_sport;		    /* source port */
+  u_int16_t uh_dport;		    /* destination port */
+  u_int16_t uh_ulen;		    /* udp length */
+  u_int16_t uh_sum;		        /* udp checksum */
+};
