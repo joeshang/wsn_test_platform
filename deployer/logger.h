@@ -16,7 +16,7 @@ DECLS_BEGIN
 struct _Logger;
 typedef struct _Logger Logger;
 
-Logger *g_logger;
+extern Logger *g_logger;
 
 enum _LoggerFileType
 {
@@ -24,7 +24,7 @@ enum _LoggerFileType
     LOGGER_OUTPUT_TYPE_STDOUT
 };
 
-Logger *logger_create(int log_file_type, char *log_path);
+Logger *logger_create(int log_file_type, const char *log_path);
 void logger_destroy(Logger *thiz);
 
 void logger_printf(Logger *thiz, const char *format, ...);

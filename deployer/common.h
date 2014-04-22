@@ -17,4 +17,22 @@
 #define DECLS_END
 #endif
 
+#define TRUE    1
+#define FALSE   0
+
+typedef enum _Ret
+{
+    RET_OK,
+    RET_OOM,
+    RET_STOP,
+    RET_INVALID_PARAMS,
+    RET_FAIL
+}Ret;
+
+#define return_val_if_fail(p, ret) if (!(p)) { return ret; }
+#define SAFE_FREE(p) if ((p) != NULL) { free(p); (p) = NULL; }
+
+#define PATH_MAX_LENGTH     4096
+#define ERROR_MSG_LENGTH    256
+
 #endif

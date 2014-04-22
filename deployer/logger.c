@@ -13,12 +13,14 @@
 
 #include "logger.h"
 
+Logger *g_logger;
+
 struct _Logger
 {
     FILE *log_fd;
 };
 
-Logger *logger_create(int log_file_type, char *log_path)
+Logger *logger_create(int log_file_type, const char *log_path)
 {
     Logger *thiz = (Logger *)malloc(sizeof(Logger));
 
