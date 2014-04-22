@@ -33,6 +33,5 @@ typedef enum _Ret
 #define SAFE_FREE(p) if ((p) != NULL) { free(p); (p) = NULL; }
 
 #define PATH_MAX_LENGTH     4096
-#define ERROR_MSG_LENGTH    256
 
 #endif
