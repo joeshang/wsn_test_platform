@@ -14,22 +14,21 @@
 #include <errno.h>
 
 #include "cJSON.h"
-#include "deploy_config.h"
+#include "deployer_config_json.h"
 
 #define FTP_USERNAME        "plg"
 #define FTP_PASSWORD        "plg"
 #define TELNET_USERNAME     "root"
 #define TELNET_PASSWORD     ""
-#define TELNET_COMMAND      "telnet/command.sh"
+#define TELNET_COMMAND      "db/telnet/command.sh"
 
 const char *target_list[] = {
-    "192.168.1.230",
-    "192.168.1.231"
+    "192.168.1.230"
 };
 
 const char *file_list[] = {
-    "1.test",
-    "2.test"
+    "db/ftp/1.txt",
+    "db/ftp/2.txt"
 };
 
 int main(int argc, char *argv[])

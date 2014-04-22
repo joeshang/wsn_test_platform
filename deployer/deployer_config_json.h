@@ -1,13 +1,13 @@
 /**
- * @file deploy_config.h
+ * @file deployer_config_json.h
  * @brief 
  * @author Joe Shang <shangchuanren@gmail.com>
  * @version 
  * @date 2014-04-22
  */
 
-#ifndef __DEPLOY_CONFIG_H__
-#define __DEPLOY_CONFIG_H__
+#ifndef __DEPLOYER_CONFIG_JSON_H__
+#define __DEPLOYER_CONFIG_JSON_H__
 
 #include "common.h"
 
