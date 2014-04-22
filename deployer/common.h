@@ -9,6 +9,8 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 #define DECLS_BEGIN     extern "C" {
 #define DECLS_END       }
@@ -31,6 +33,11 @@ typedef enum _Ret
 
 #define return_val_if_fail(p, ret) if (!(p)) { return ret; }
 #define SAFE_FREE(p) if ((p) != NULL) { free(p); (p) = NULL; }
+#ifdef _DEBUG
+#define debug(format, ...) printf(format, ##__VA_ARGS__)
+#else
+#define debug(format, ...)
+#endif
 
 #define PATH_MAX_LENGTH     4096
 

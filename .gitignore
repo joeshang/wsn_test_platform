@@ -2,3 +2,4 @@
 *.swp
 *~
 deployer/ref/
+deployer/db/
