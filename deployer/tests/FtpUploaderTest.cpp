@@ -29,54 +29,18 @@ TEST_GROUP(FtpUploader)
     }
 };
 
-//TEST(FtpUploader, FtpConnectFailed)
-//{
-    //printf("==============================\n");
-    //printf("FtpLoginConnectFailded:\n");
-
-    //CHECK_EQUAL(RET_OK, ftp_uploader_connect(ftp_uploader, "127.0.0.11"));
-
-    //printf("==============================\n");
-    //printf("\n\n");
-//}
-
-//TEST(FtpUploader, FtpLoginInvalidUsername)
-//{
-    //printf("==============================\n");
-    //printf("FtpLoginInvalidUsername:\n");
-
-    //LONGS_EQUAL(RET_OK, ftp_uploader_connect(ftp_uploader, "127.0.0.1"));
-    //LONGS_EQUAL(RET_FAIL, ftp_uploader_login(ftp_uploader, "invalid", "invalid"));
-    //ftp_uploader_close(ftp_uploader);
-
-    //printf("==============================\n");
-    //printf("\n\n");
-//}
-
-//TEST(FtpUploader, FtpLoginInvalidPassword)
-//{
-    //printf("==============================\n");
-    //printf("FtpLoginInvalidPassword:\n");
-
-    //LONGS_EQUAL(RET_OK, ftp_uploader_connect(ftp_uploader, "127.0.0.1"));
-    //LONGS_EQUAL(RET_FAIL, ftp_uploader_login(ftp_uploader, "joe", "invalid"));
-    //ftp_uploader_close(ftp_uploader);
-
-    //printf("==============================\n");
-    //printf("\n\n");
-//}
-
-TEST(FtpUploader, FtpLoginSuccess)
+TEST(FtpUploader, FtpTest)
 {
     int fd;
 
+    printf("\n");
     printf("==============================\n");
     printf("FtpPutFileSuccess:\n");
-    LONGS_EQUAL(RET_OK, ftp_uploader_connect(ftp_uploader, "127.0.0.1"));
-    LONGS_EQUAL(RET_OK, ftp_uploader_login(ftp_uploader, "joe", "lovejie1108"));
+    LONGS_EQUAL(RET_OK, ftp_uploader_connect(ftp_uploader, "192.168.1.230"));
+    LONGS_EQUAL(RET_OK, ftp_uploader_login(ftp_uploader, "plg", "plg"));
     LONGS_EQUAL(RET_OK, ftp_uploader_set_binary_mode(ftp_uploader));
-    fd = fileno(fopen("AllTests.cpp", "r"));
-    LONGS_EQUAL(RET_OK, ftp_uploader_put(ftp_uploader, fd, "AllTests.cpp"));
+    fd = fileno(fopen("../db/ftp/1.txt", "r"));
+    LONGS_EQUAL(RET_OK, ftp_uploader_put(ftp_uploader, fd, "1.txt"));
     ftp_uploader_close(ftp_uploader);
     printf("==============================\n");
     printf("\n\n");

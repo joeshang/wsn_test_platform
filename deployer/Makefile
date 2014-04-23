@@ -12,6 +12,7 @@ TARGET = deployer
 OBJECTS += main.o \
 		   logger.o \
 		   ftp_uploader.o \
+		   telnet_commander.o \
 		   deployer.o
 
 OBJECTS += $(LIB_DIR)/cJSON/cJSON.o\

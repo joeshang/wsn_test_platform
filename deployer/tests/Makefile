@@ -4,9 +4,10 @@ RM = rm -rf
 
 CPPUTEST_HOME = /home/joe/app/cpputest-3.5
 
-CPPFLAGS += -c -Wall \
+CPPFLAGS += -c -Wall -D_DEBUG \
 			-I$(CPPUTEST_HOME)/include \
-			-I..
+			-I../lib/libtelnet/ \
+			-I../
 
 LD_LIBRARIES = -L$(CPPUTEST_HOME)/lib -lCppUTest -lCppUTestExt
 
@@ -14,9 +15,12 @@ TARGET = all_tests
 
 OBJECTS += AllTests.o \
 		   LoggerTest.o \
-		   FtpUploaderTest.o
+		   FtpUploaderTest.o \
+		   TelnetCommanderTest.o
 OBJECTS += ../logger.o \
-		   ../ftp_uploader.o
+		   ../ftp_uploader.o \
+		   ../telnet_commander.o \
+		   ../lib/libtelnet/libtelnet.o
 
 $(TARGET): $(OBJECTS)
 	$(CPP) $^ $(LD_LIBRARIES) -o $@
