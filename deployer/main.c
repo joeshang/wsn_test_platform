@@ -20,15 +20,17 @@ const char *out[] = {
     "[failed]"
 };
 
-void deployer_event_cb(DeployerEventContext *event_cb_ctx, void *ctx)
+static void deployer_event_cb(DeployerEventContext *event_cb_ctx, void *ctx)
 {
     const char *result = out[event_cb_ctx->result];
 
     switch (event_cb_ctx->event)
     {
         case DEPLOYER_EVENT_TARGET_START:
-            printf("====================================\n");
+            printf("==================================================\n");
+            logger_printf("==================================================\n");
             printf("target: %s\n", event_cb_ctx->target);
+            logger_printf("target: %s\n", event_cb_ctx->target);
             break;
         case DEPLOYER_EVENT_FTP_CONNECT:
             printf("--> FTP connect %s\n", result);
@@ -46,15 +48,19 @@ void deployer_event_cb(DeployerEventContext *event_cb_ctx, void *ctx)
             printf("--> FTP close %s\n", result);
             break;
         case DEPLOYER_EVENT_TELNET_CONNECT:
+            printf("--> Telnet connect %s\n", result);
+            break;
+        case DEPLOYER_EVENT_TELNET_LOGIN:
+            printf("--> Telnet login %s\n", result);
             break;
         case DEPLOYER_EVENT_TELNET_COMMAND:
+            printf("--> Telnet command %s\n", result);
             break;
         case DEPLOYER_EVENT_TELNET_CLOSE:
+            printf("--> Telnet close %s\n", result);
             break;
         case DEPLOYER_EVENT_TARGET_END:
             printf("RESULT: %s\n", out[event_cb_ctx->result]);
-            printf("====================================\n");
-            printf("\n");
             break;
         default:
             break;
@@ -79,12 +85,16 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     } 
 
-    g_logger = logger_create(LOGGER_OUTPUT_TYPE_STDOUT, NULL);
+    if (logger_init("deployer.log") != RET_OK)
+    {
+        fprintf(stderr, "logger init failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     Deployer *deployer = deployer_create(deployer_event_cb, NULL);
     if (deployer == NULL)
     {
-        fprintf(stderr, "create deployer failed.\n");
+        fprintf(stderr, "create deployer failed\n");
         exit(EXIT_FAILURE);
     }
 
@@ -96,7 +106,7 @@ int main(int argc, char *argv[])
     deployer_do_deploy(deployer);
 
     deployer_destroy(deployer);
-    logger_destroy(g_logger);
+    logger_close();
 
     return 0;
 }

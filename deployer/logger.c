@@ -42,8 +42,11 @@ Ret logger_init(const char *log_path)
 
 void logger_close()
 {
-    fclose(s_log_file);
-    s_log_file = NULL;
+    if (s_log_file != NULL && s_log_file != stdout)
+    {
+        fclose(s_log_file);
+        s_log_file = NULL;
+    }
 }
 
 void logger_printf(const char *format, ...)

@@ -19,11 +19,13 @@ TEST_GROUP(FtpUploader)
     void setup()
     {
         ftp_uploader = ftp_uploader_create();
+        logger_init(NULL);
     }
 
     void teardown()
     {
         ftp_uploader_destroy(ftp_uploader);
+        logger_close();
     }
 };
 

@@ -9,6 +9,7 @@
 #include "CppUTest/TestHarness.h"
 
 #include "telnet_commander.h"
+#include "logger.h"
 
 TEST_GROUP(TelnetCommander)
 {
@@ -17,10 +18,12 @@ TEST_GROUP(TelnetCommander)
     void setup()
     {
         telnet_commander = telnet_commander_create();
+        logger_init(NULL);
     }
 
     void teardown()
     {
+        logger_close();
         telnet_commander_destroy(telnet_commander);
     }
 };

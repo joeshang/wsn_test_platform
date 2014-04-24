@@ -17,6 +17,7 @@
 
 #include "telnet_commander.h"
 #include "libtelnet.h"
+#include "logger.h"
 
 #define TELNET_PORT         23
 #define RECV_BUFFER_SIZE    1024
@@ -50,6 +51,29 @@ static Ret telnet_commander_recv_until_match(TelnetCommander *thiz,
         const char **desire_list,
         int *match_index);
 
+static int match(const char *comparer, const char **desire_list, int *match_index)
+{
+    int index = 0;
+    const char **p_desire_item= desire_list;
+
+    while (*p_desire_item != NULL)
+    {
+        if (strstr(comparer, *p_desire_item) != NULL)   /* matched! */
+        {
+            if (match_index != NULL)
+            {
+                *match_index = index;
+            }
+            return TRUE;
+        }
+
+        p_desire_item++;
+        index++;
+    }
+
+    return FALSE;
+}
+
 static void telnet_commander_send(int sock, const char *buffer, size_t size)
 {
 	int rs;
@@ -74,29 +98,6 @@ static void telnet_commander_send(int sock, const char *buffer, size_t size)
 	}
 }
 
-static int match(const char *comparer, const char **desire_list, int *match_index)
-{
-    int index = 0;
-    const char **p_desire_item= desire_list;
-
-    while (*p_desire_item != NULL)
-    {
-        if (strstr(comparer, *p_desire_item) != NULL)   /* matched! */
-        {
-            if (match_index != NULL)
-            {
-                *match_index = index;
-            }
-            return TRUE;
-        }
-
-        p_desire_item++;
-        index++;
-    }
-
-    return FALSE;
-}
-
 static Ret telnet_commander_recv_until_match(TelnetCommander *thiz, 
         const char **desire_list,
         int *match_index)
@@ -114,7 +115,11 @@ static Ret telnet_commander_recv_until_match(TelnetCommander *thiz,
         {
             recv_buffer[rs] = '\0';
             telnet_recv(thiz->telnet, recv_buffer, rs);
-            debug("%s", recv_buffer);
+            unsigned char c = (unsigned char)recv_buffer[0];
+            if (c != TELNET_IAC)
+            {
+                logger_printf("%s", recv_buffer);
+            }
         }
         else
         {
@@ -295,6 +300,8 @@ Ret telnet_commander_close(TelnetCommander *thiz)
 {
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
 
+    logger_printf("\n");
+
     if (thiz->socket != -1)
     {
         close(thiz->socket);
@@ -316,8 +323,6 @@ void telnet_commander_destroy(TelnetCommander *thiz)
     {
         return;
     }
-
-    telnet_commander_close(thiz);
 
     free(thiz);
 }
