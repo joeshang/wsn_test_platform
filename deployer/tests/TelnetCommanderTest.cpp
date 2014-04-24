@@ -29,8 +29,8 @@ TEST(TelnetCommander, TelnetTest)
 {
     LONGS_EQUAL(RET_OK, telnet_commander_connect(telnet_commander, "192.168.1.230"));
     LONGS_EQUAL(RET_OK, telnet_commander_login(telnet_commander, "root", ""));
-    LONGS_EQUAL(RET_OK, telnet_commander_send_one_line(telnet_commander, "cp /etc/init.d/rcS ."));
-    LONGS_EQUAL(RET_OK, telnet_commander_send_one_line(telnet_commander, "chmod 777 rcS"));
-    LONGS_EQUAL(RET_OK, telnet_commander_send_one_line(telnet_commander, "ls > ls.log"));
+    LONGS_EQUAL(RET_OK, telnet_commander_send_one_line(telnet_commander, "cp /etc/init.d/rcS .\r\n"));
+    LONGS_EQUAL(RET_OK, telnet_commander_send_one_line(telnet_commander, "chmod 777 rcS\r\n"));
+    LONGS_EQUAL(RET_OK, telnet_commander_send_one_line(telnet_commander, "ls > ls.log\r\n"));
     LONGS_EQUAL(RET_OK, telnet_commander_close(telnet_commander));
 }

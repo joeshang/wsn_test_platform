@@ -43,14 +43,14 @@ struct _TelnetCommander
 
 typedef int (* Match)(const char *string, void *user_data);
 
-static void telnet_commander_send_with_crlf(int sock, const char *buffer, size_t size);
 static void event_handler(telnet_t *telnet, telnet_event_t *ev, void *user_data);
 static int match(const char *comparer, const char **desire_list, int *match_index);
+static void telnet_commander_send(int sock, const char *buffer, size_t size);
 static Ret telnet_commander_recv_until_match(TelnetCommander *thiz, 
         const char **desire_list,
         int *match_index);
 
-static void telnet_commander_send_with_crlf(int sock, const char *buffer, size_t size)
+static void telnet_commander_send(int sock, const char *buffer, size_t size)
 {
 	int rs;
 
@@ -72,9 +72,6 @@ static void telnet_commander_send_with_crlf(int sock, const char *buffer, size_t
 		buffer += rs;
 		size -= rs;
 	}
-
-    /* send "\r\n" after the end of data */
-    send(sock, CRLF, sizeof(CRLF), 0);
 }
 
 static int match(const char *comparer, const char **desire_list, int *match_index)
@@ -116,6 +113,7 @@ static Ret telnet_commander_recv_until_match(TelnetCommander *thiz,
         if (rs > 0)
         {
             recv_buffer[rs] = '\0';
+            telnet_recv(thiz->telnet, recv_buffer, rs);
             debug("%s", recv_buffer);
         }
         else
@@ -140,8 +138,7 @@ static void event_handler(telnet_t *telnet, telnet_event_t *ev, void *user_data)
 		break;
 	/* data must be sent */
 	case TELNET_EV_SEND:
-        debug("event handler send(size: %d)\n", ev->data.size);
-		telnet_commander_send_with_crlf(sock, ev->data.buffer, ev->data.size);
+		telnet_commander_send(sock, ev->data.buffer, ev->data.size);
 		break;
 	/* request to enable remote feature (or receipt) */
 	case TELNET_EV_WILL:
@@ -232,7 +229,6 @@ Ret telnet_commander_login(TelnetCommander *thiz, const char *username, const ch
     Ret ret = RET_OK;
     int match_index;
 
-    debug("telnet login\n");
     /* wait for login: */
     const char *desire_list_after_connect[] = { LOGIN, NULL };
     if (telnet_commander_recv_until_match(thiz, desire_list_after_connect, NULL) != RET_OK)
@@ -241,9 +237,8 @@ Ret telnet_commander_login(TelnetCommander *thiz, const char *username, const ch
     }
 
 
-    debug("telnet send username\n");
     telnet_send(thiz->telnet, username, strlen(username));
-    /*telnet_send(thiz->telnet, CRLF, strlen(CRLF));*/
+    telnet_send(thiz->telnet, CRLF, strlen(CRLF));
 
     match_index = -1;
     const char *desire_list_after_username[] = { PASSWORD, PROMPT, NULL };
@@ -254,7 +249,6 @@ Ret telnet_commander_login(TelnetCommander *thiz, const char *username, const ch
 
     if (match_index == 0) /* require password */
     {
-        debug("telnet send password\n");
         if (strlen(password) == 1)
         {
             fprintf(stderr, "telnet login failed: required password\n");
@@ -262,7 +256,7 @@ Ret telnet_commander_login(TelnetCommander *thiz, const char *username, const ch
         }
 
         telnet_send(thiz->telnet, password, strlen(password));
-        /*telnet_send(thiz->telnet, CRLF, strlen(CRLF));*/
+        telnet_send(thiz->telnet, CRLF, strlen(CRLF));
 
         match_index = -1;
         const char *desire_list_after_password[] = { LOGIN_FAIL, PROMPT, NULL };
@@ -287,7 +281,6 @@ Ret telnet_commander_send_one_line(TelnetCommander *thiz, const char *input)
     return_val_if_fail(input != NULL, RET_INVALID_PARAMS);
 
     telnet_send(thiz->telnet, input, strlen(input));
-    /*telnet_send(thiz->telnet, CRLF, strlen(CRLF));*/
 
     const char *desire_list_after_command[] = { PROMPT, NULL };
     if (telnet_commander_recv_until_match(thiz, desire_list_after_command, NULL) != RET_OK)
