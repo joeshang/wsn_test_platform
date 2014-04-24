@@ -20,7 +20,7 @@
 #define FTP_PASSWORD        "plg"
 #define TELNET_USERNAME     "root"
 #define TELNET_PASSWORD     ""
-#define TELNET_COMMAND      "db/telnet/command.sh"
+#define TELNET_COMMAND      "db/telnet/command"
 
 const char *target_list[] = {
     "192.168.1.230"

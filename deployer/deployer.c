@@ -19,6 +19,7 @@
 #include "ftp_uploader.h"
 #include "telnet_commander.h"
 #include "cJSON.h"
+#include "dlist.h"
 
 #define DEFAULT_DEPLOY_NAME     "default_deploy_name"
 #define COMMAND_SCRIPT_NAME     "deploy_command.sh"
@@ -36,7 +37,7 @@ struct _Deployer
     TelnetCommander *telnet_commander;
     char *telnet_username;
     char *telnet_password;
-    int telnet_command_fd;
+    DList *telnet_command_list;
 
     /* deploy targets */
     int deploy_target_count;
@@ -51,6 +52,30 @@ struct _Deployer
     DeployerEventCallBack event_cb;
     void *event_cb_data;
 };
+
+static void destroy_telnet_command_list(void *ctx, void *data);
+static Ret visit_telnet_command_list(void *ctx, void *data);
+static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address);
+static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root);
+static Ret deployer_parse_ftp(Deployer *thiz, cJSON *root);
+static Ret deployer_parse_telnet(Deployer *thiz, cJSON *root);
+static Ret deployer_parse_deploy_targets(Deployer *thiz, cJSON *root);
+static Ret deployer_parse_deploy_files(Deployer *thiz, cJSON *root);
+
+static void destroy_telnet_command_list(void *ctx, void *data)
+{
+    SAFE_FREE(data);
+}
+
+static Ret visit_telnet_command_list(void *ctx, void *data)
+{
+    Deployer *thiz = (Deployer *)ctx;
+    const char *command = (const char *)data;
+
+    thiz->event_cb_ctx->command = command;
+
+    return telnet_commander_send_one_line(thiz->telnet_commander, command);
+}
 
 static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
 {
@@ -122,22 +147,13 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
         thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
     }
 
-    /* step 4. ftp put telnet command script */
-    thiz->event_cb_ctx->file = COMMAND_SCRIPT_NAME;
-    if ((ret = ftp_uploader_put(thiz->ftp_uploader, thiz->telnet_command_fd, COMMAND_SCRIPT_NAME)) != RET_OK)
-    {
-        goto fail;
-    }
-    thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
-
-
-    /* step 5. ftp close */
+    /* step 4. ftp close */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_FTP_CLOSE;
     thiz->event_cb_ctx->file = NULL;
     ftp_uploader_close(thiz->ftp_uploader);
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
-    /* step 6. telnet connect */
+    /* step 5. telnet connect */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_CONNECT;
     if ((ret = telnet_commander_connect(thiz->telnet_commander, ip_address)) != RET_OK)
     {
@@ -145,7 +161,7 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
     }
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
-    /* step 7. telnet login */
+    /* step 6. telnet login */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_LOGIN;
     if ((ret = telnet_commander_login(thiz->telnet_commander, thiz->telnet_username, thiz->telnet_password)) != RET_OK)
     {
@@ -153,26 +169,17 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
     }
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
-    /* step 8. telnet send command after ftp uploading */
-    char command[COMMAND_BUFFER_SIZE];
+    /* step 7. telnet send command after ftp uploading */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_COMMAND;
-    if ((ret = telnet_commander_send_one_line(thiz->telnet_commander, "cd /home/plg\r\n")) != RET_OK)
-    {
-        goto fail;
-    }
-    sprintf(command, "chmod 0755 %s\r\n", COMMAND_SCRIPT_NAME);
-    if ((ret = telnet_commander_send_one_line(thiz->telnet_commander, command)) != RET_OK)
-    {
-        goto fail;
-    }
-    sprintf(command, "./%s\r\n", COMMAND_SCRIPT_NAME);
-    if ((ret = telnet_commander_send_one_line(thiz->telnet_commander, command)) != RET_OK)
+    if ((ret = dlist_foreach(thiz->telnet_command_list, 
+                    visit_telnet_command_list, 
+                    (void *)thiz)) != RET_OK)
     {
         goto fail;
     }
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
-    /* step 9. telnet close */
+    /* step 8. telnet close */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_CLOSE;
     if ((ret = telnet_commander_close(thiz->telnet_commander)) != RET_OK)
     {
@@ -187,20 +194,13 @@ fail:
     return ret;
 }
 
-static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
+static Ret deployer_parse_ftp(Deployer *thiz, cJSON *root)
 {
-    return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
-    return_val_if_fail(root != NULL, RET_INVALID_PARAMS);
-
-    Ret ret = RET_OK;
-    int i;
-
-    /* ftp related */
     cJSON *ftp = cJSON_GetObjectItem(root, CONF_JSON_FTP);
     if (ftp == NULL)
     {
         fprintf(stderr, "parse config file failed: can't find [ftp] section.\n");
-        goto fail;
+        return RET_FAIL;
     }
 
     /* ftp/username */
@@ -208,10 +208,10 @@ static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
     if (ftp_username == NULL)
     {
         fprintf(stderr, "parse config file failed: can't find [ftp/username] section.\n");
-        goto fail;
+        return RET_FAIL;
     }
     thiz->ftp_username = strdup(ftp_username->valuestring);
-    debug("-> ftp/username: %s\n", ftp_username->valuestring);
+    debug("--> ftp/username: %s\n", ftp_username->valuestring);
 
     /* ftp/password */
     cJSON *ftp_password = cJSON_GetObjectItem(ftp, CONF_JSON_FTP_PASSWORD);
@@ -223,14 +223,18 @@ static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
     {
         thiz->ftp_password = strdup(ftp_password->valuestring);
     }
-    debug("-> ftp/password: %s\n", ftp_password->valuestring);
+    debug("--> ftp/password: %s\n", ftp_password->valuestring);
 
-    /* telnet related */
+    return RET_OK;
+}
+
+static Ret deployer_parse_telnet(Deployer *thiz, cJSON *root)
+{
     cJSON *telnet = cJSON_GetObjectItem(root, CONF_JSON_TELNET);
     if (telnet == NULL)
     {
         fprintf(stderr, "parse config file failed: can't find [telnet] section.\n");
-        goto fail;
+        return RET_FAIL;
     }
 
     /* telnet/username */
@@ -238,10 +242,10 @@ static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
     if (telnet_username == NULL)
     {
         fprintf(stderr, "parse config file failed: can't find [telnet/username] section.\n");
-        goto fail;
+        return RET_FAIL;
     }
     thiz->telnet_username = strdup(telnet_username->valuestring);
-    debug("-> telnet/username: %s\n", telnet_username->valuestring);
+    debug("--> telnet/username: %s\n", telnet_username->valuestring);
 
     /* telnet/password */
     cJSON *telnet_password = cJSON_GetObjectItem(telnet, CONF_JSON_TELNET_PASSWORD);
@@ -253,43 +257,80 @@ static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
     {
         thiz->telnet_password = strdup(telnet_password->valuestring);
     }
-    debug("-> telnet/password: %s\n", telnet_password->valuestring);
+    debug("--> telnet/password: %s\n", telnet_password->valuestring);
 
     /* telnet/command file */
     cJSON *telnet_command_file = cJSON_GetObjectItem(telnet, CONF_JSON_TELNET_COMMAND);
     if (telnet_command_file == NULL)
     {
         fprintf(stderr, "parse config file failed: can't find [telnet/command file] section.\n");
-        goto fail;
+        return RET_FAIL;
     }
-    debug("-> telnet/command: %s\n", telnet_command_file->valuestring);
-    thiz->telnet_command_fd = open(telnet_command_file->valuestring, O_RDONLY);
-    if (thiz->telnet_command_fd == -1)
+    debug("--> telnet/command: %s\n", telnet_command_file->valuestring);
+    /* open command file */
+    FILE *command_file = fopen(telnet_command_file->valuestring, "r");
+    if (command_file == NULL)
     {
         fprintf(stderr, "open telnet command file %s failed: %s\n", telnet_command_file->valuestring, strerror(errno));
-        goto fail;
+        return RET_FAIL;
+    }
+    /* extract command file's commands to deployer's command list */
+    int index = 0;
+    char c;
+    char *command;
+    char buffer[COMMAND_BUFFER_SIZE];
+    while ((c = fgetc(command_file)) != EOF)
+    {
+        if (c == '\n')
+        {
+            if (index != 0) /* this line is valid command, not empty */
+            {
+                /* add "\r\n" in the end of one command */
+                buffer[index++] = '\r';
+                buffer[index++] = '\n';
+                buffer[index] = '\0';
+                debug("    +-> command: %s", buffer);
+
+                /* add command in command list */
+                command = strdup(buffer);
+                dlist_append(thiz->telnet_command_list, (void *)command);
+
+                /* next character is at new line, so reset index */
+                index = 0;
+            }
+        }
+        else
+        {
+            buffer[index++] = c;
+        }
     }
 
-    /* deploy targets */
+    return RET_OK;
+}
+
+static Ret deployer_parse_deploy_targets(Deployer *thiz, cJSON *root)
+{
+    int i;
+
     cJSON *targets = cJSON_GetObjectItem(root, CONF_JSON_DEPLOY_TARGETS);
     if (targets == NULL)
     {
         fprintf(stderr, "parse config file failed: can't find [deploy targets] section.\n");
-        goto fail;
+        return RET_FAIL;
     }
     /* get deploy targets' count */
     thiz->deploy_target_count = cJSON_GetArraySize(targets);
     if (thiz->deploy_target_count == 0)
     {
         fprintf(stderr, "parse config file failed: deploy targets' count is 0.\n");
-        goto fail;
+        return RET_FAIL;
     }
     /* malloc deploy target list */
     thiz->deploy_target_list = (char **)malloc(thiz->deploy_target_count);
     if (thiz->deploy_target_list == NULL)
     {
         fprintf(stderr, "malloc deploy target list failed.\n");
-        goto fail;
+        return RET_FAIL;
     }
     for (i = 0; i < thiz->deploy_target_count; i++)
     {
@@ -303,30 +344,36 @@ static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
         if (one_target != NULL)
         {
             thiz->deploy_target_list[i] = strdup(one_target->valuestring);
-            debug("-> deploy target[%d]: %s\n", i, one_target->valuestring);
+            debug("--> deploy target[%d]: %s\n", i, one_target->valuestring);
         }
     }
 
-    /* deploy files */
+    return RET_OK;
+}
+
+static Ret deployer_parse_deploy_files(Deployer *thiz, cJSON *root)
+{
+    int i;
+
     cJSON *files = cJSON_GetObjectItem(root, CONF_JSON_DEPLOY_FILES);
     if (files == NULL)
     {
         fprintf(stderr, "parse config file failed: can't find [deploy files] section.\n");
-        goto fail;
+        return RET_FAIL;
     }
     /* get deploy files' count */
     thiz->deploy_file_count = cJSON_GetArraySize(files);
     if (thiz->deploy_file_count == 0)
     {
         fprintf(stderr, "parse config file failed: deploy files' count is 0.\n");
-        goto fail;
+        return RET_FAIL;
     }
     /* malloc deploy file list and init */
     thiz->deploy_file_list = (int *)malloc(thiz->deploy_file_count);
     if (thiz->deploy_file_list == NULL)
     {
         fprintf(stderr, "malloc deploy file list failed.\n");
-        goto fail;
+        return RET_FAIL;
     }
     for (i = 0; i < thiz->deploy_file_count; i++)
     {
@@ -339,14 +386,48 @@ static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
         one_file = cJSON_GetArrayItem(files, i);
         if (one_file != NULL)
         {
-            debug("-> deploy file[%d]: %s\n", i, one_file->valuestring);
+            debug("--> deploy file[%d]: %s\n", i, one_file->valuestring);
             thiz->deploy_file_list[i] = open(one_file->valuestring, O_RDONLY);
             if (thiz->deploy_file_list[i] == -1)
             {
                 fprintf(stderr, "open deploy file %s failed.\n", one_file->valuestring);
-                goto fail;
+                return RET_FAIL;
             }
         }
+    }
+
+    return RET_OK;
+}
+
+static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
+{
+    return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
+    return_val_if_fail(root != NULL, RET_INVALID_PARAMS);
+
+    Ret ret = RET_OK;
+
+    /* ftp related */
+    if ((ret = deployer_parse_ftp(thiz, root)) != RET_OK)
+    {
+        goto fail;
+    }
+
+    /* telnet related */
+    if ((ret = deployer_parse_telnet(thiz, root)) != RET_OK)
+    {
+        goto fail;
+    }
+
+    /* deploy targets */
+    if ((ret = deployer_parse_deploy_targets(thiz, root)) != RET_OK)
+    {
+        goto fail;
+    }
+
+    /* deploy files */
+    if ((ret = deployer_parse_deploy_files(thiz, root)) != RET_OK)
+    {
+        goto fail;
     }
 
     return ret;
@@ -385,7 +466,11 @@ Deployer *deployer_create(DeployerEventCallBack event_cb,
         }
         thiz->telnet_username = NULL;
         thiz->telnet_password = NULL;
-        thiz->telnet_command_fd = -1;
+        thiz->telnet_command_list = dlist_create(destroy_telnet_command_list, NULL);
+        if (thiz->telnet_command_list == NULL)
+        {
+            goto fail;
+        }
 
         thiz->deploy_file_count = 0;
         thiz->deploy_file_list = NULL;
@@ -403,6 +488,7 @@ Deployer *deployer_create(DeployerEventCallBack event_cb,
         thiz->event_cb_ctx->result = DEPLOYER_EVENT_RESULT_INIT;
         thiz->event_cb_ctx->target = NULL;
         thiz->event_cb_ctx->file = NULL;
+        thiz->event_cb_ctx->command = NULL;
 
         thiz->event_cb = event_cb;
         thiz->event_cb_data = event_cb_data;
@@ -429,7 +515,11 @@ void deployer_destroy(Deployer *thiz)
 
     SAFE_FREE(thiz->telnet_username);
     SAFE_FREE(thiz->telnet_password);
-    close(thiz->telnet_command_fd);
+    if (thiz->telnet_command_list != NULL)
+    {
+        dlist_destroy(thiz->telnet_command_list);
+        thiz->telnet_command_list = NULL;
+    }
 
     if (thiz->deploy_target_list != NULL)
     {

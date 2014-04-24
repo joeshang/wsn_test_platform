@@ -42,6 +42,7 @@ typedef struct _DeployerEventContext
     DeployerEventResult result;
     const char *target;
     const char *file;
+    const char *command;
 }DeployerEventContext;
 
 typedef void (*DeployerEventCallBack)(DeployerEventContext *event_cb_ctx, void * event_cb_data);
