@@ -17,10 +17,13 @@
 #include "deployer.h"
 #include "deployer_config_json.h"
 #include "ftp_uploader.h"
+#include "telnet_commander.h"
 #include "cJSON.h"
 
 #define DEFAULT_DEPLOY_NAME     "default_deploy_name"
+#define COMMAND_SCRIPT_NAME     "deploy_command.sh"
 #define PROC_LINK_LENGTH        50
+#define COMMAND_BUFFER_SIZE     100
 
 struct _Deployer
 {
@@ -30,6 +33,7 @@ struct _Deployer
     char *ftp_password;
     
     /* telnet related */
+    TelnetCommander *telnet_commander;
     char *telnet_username;
     char *telnet_password;
     int telnet_command_fd;
@@ -57,11 +61,7 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
 
     thiz->event_cb_ctx->result = DEPLOYER_EVENT_RESULT_SUCCESS;
 
-    /* step . telnet connect*/
-    thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_CONNECT;
-    thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
-
-    /* step . ftp connect */
+    /* step 1. ftp connect */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_FTP_CONNECT;
     if ((ret = ftp_uploader_connect(thiz->ftp_uploader, ip_address)) != RET_OK)
     {
@@ -69,7 +69,7 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
     }
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
-    /* step . ftp login and config */
+    /* step 2. ftp login and config */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_FTP_LOGIN;
     if ((ret = ftp_uploader_login(thiz->ftp_uploader, thiz->ftp_username, thiz->ftp_password)) != RET_OK)
     {
@@ -84,11 +84,12 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
     }
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
-    /* step . ftp upload every deploying file */
+    /* step 3. ftp upload every deploying file */
     char *deploy_name = NULL;
     char proc_link[PROC_LINK_LENGTH];
     char path_name[PATH_MAX_LENGTH];
     int n;
+    thiz->event_cb_ctx->event = DEPLOYER_EVENT_FTP_PUT_FILE;
     for (i = 0; i < thiz->deploy_file_count; i++)
     {   
         /* get file name from fd by readlink */
@@ -113,7 +114,6 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
             }
         }
         
-        thiz->event_cb_ctx->event = DEPLOYER_EVENT_FTP_PUT_FILE;
         thiz->event_cb_ctx->file = deploy_name;
         if ((ret = ftp_uploader_put(thiz->ftp_uploader, thiz->deploy_file_list[i], deploy_name)) != RET_OK)
         {
@@ -122,18 +122,62 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
         thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
     }
 
-    /* step . ftp close */
+    /* step 4. ftp put telnet command script */
+    thiz->event_cb_ctx->file = COMMAND_SCRIPT_NAME;
+    if ((ret = ftp_uploader_put(thiz->ftp_uploader, thiz->telnet_command_fd, COMMAND_SCRIPT_NAME)) != RET_OK)
+    {
+        goto fail;
+    }
+    thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
+
+
+    /* step 5. ftp close */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_FTP_CLOSE;
     thiz->event_cb_ctx->file = NULL;
     ftp_uploader_close(thiz->ftp_uploader);
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
-    /* step . telnet send command after ftp uploading */
-    thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_COMMAND;
+    /* step 6. telnet connect */
+    thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_CONNECT;
+    if ((ret = telnet_commander_connect(thiz->telnet_commander, ip_address)) != RET_OK)
+    {
+        goto fail;
+    }
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
-    /* step . telnet close */
+    /* step 7. telnet login */
+    thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_LOGIN;
+    if ((ret = telnet_commander_login(thiz->telnet_commander, thiz->telnet_username, thiz->telnet_password)) != RET_OK)
+    {
+        goto fail;
+    }
+    thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
+
+    /* step 8. telnet send command after ftp uploading */
+    char command[COMMAND_BUFFER_SIZE];
+    thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_COMMAND;
+    if ((ret = telnet_commander_send_one_line(thiz->telnet_commander, "cd /home/plg\r\n")) != RET_OK)
+    {
+        goto fail;
+    }
+    sprintf(command, "chmod 0755 %s\r\n", COMMAND_SCRIPT_NAME);
+    if ((ret = telnet_commander_send_one_line(thiz->telnet_commander, command)) != RET_OK)
+    {
+        goto fail;
+    }
+    sprintf(command, "./%s\r\n", COMMAND_SCRIPT_NAME);
+    if ((ret = telnet_commander_send_one_line(thiz->telnet_commander, command)) != RET_OK)
+    {
+        goto fail;
+    }
+    thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
+
+    /* step 9. telnet close */
     thiz->event_cb_ctx->event = DEPLOYER_EVENT_TELNET_CLOSE;
+    if ((ret = telnet_commander_close(thiz->telnet_commander)) != RET_OK)
+    {
+        goto fail;
+    }
     thiz->event_cb(thiz->event_cb_ctx, thiz->event_cb_data);
 
     return ret;
@@ -334,6 +378,11 @@ Deployer *deployer_create(DeployerEventCallBack event_cb,
         thiz->ftp_username = NULL;
         thiz->ftp_password = NULL;
         
+        thiz->telnet_commander = telnet_commander_create();
+        if (thiz->telnet_commander == NULL)
+        {
+            goto fail;
+        }
         thiz->telnet_username = NULL;
         thiz->telnet_password = NULL;
         thiz->telnet_command_fd = -1;
@@ -412,9 +461,16 @@ void deployer_destroy(Deployer *thiz)
         thiz->deploy_file_list = NULL;
     }
 
+    if (thiz->telnet_commander != NULL)
+    {
+        telnet_commander_destroy(thiz->telnet_commander);
+        thiz->telnet_commander = NULL;
+    }
+
     if (thiz->ftp_uploader != NULL)
     {
         ftp_uploader_destroy(thiz->ftp_uploader);
+        thiz->ftp_uploader = NULL;
     }
 
     free(thiz);
