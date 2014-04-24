@@ -9,68 +9,48 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <assert.h>
+#include <string.h>
+#include <errno.h>
 
 #include "logger.h"
 
-Logger *g_logger;
+static FILE *s_log_file = NULL;
 
-struct _Logger
+Ret logger_init(const char *log_path)
 {
-    FILE *log_fd;
-};
-
-Logger *logger_create(int log_file_type, const char *log_path)
-{
-    Logger *thiz = (Logger *)malloc(sizeof(Logger));
-
-    if (thiz != NULL)
+    if (s_log_file != NULL)
     {
-        if (log_file_type == LOGGER_OUTPUT_TYPE_FILE)
-        {
-            thiz->log_fd = fopen(log_path, "w+");
-            if (thiz->log_fd == NULL)
-            {
-                char error_msg[100];
-                snprintf(error_msg, 100, "open log file %s failed", log_path);
-                perror(error_msg);
-                free(thiz);
-                thiz = NULL;
-            }
-        }
-        else if (log_file_type == LOGGER_OUTPUT_TYPE_STDOUT)
-        {
-            thiz->log_fd = stdout;
-        }
-        else
-        {
-            fprintf(stderr, "invalid log file type: %d\n", log_file_type);
-            free(thiz);
-            thiz = NULL;
-        }
+        logger_close();
     }
 
-    return thiz;
-}
-
-void logger_destroy(Logger *thiz)
-{
-    if (thiz == NULL)
+    if (log_path != NULL)
     {
-        return;
+        s_log_file = fopen(log_path, "w+");
+        if (s_log_file == NULL)
+        {
+            fprintf(stderr, "open log file %s failed: %s\n", log_path, strerror(errno));
+            return RET_FAIL;
+        }
+    }
+    else 
+    {
+        s_log_file = stdout;
     }
 
-   fclose(thiz->log_fd); 
-   free(thiz);
+    return RET_OK;
 }
 
-void logger_printf(Logger *thiz, const char *format, ...)
+void logger_close()
 {
-    assert(thiz != NULL);
-    assert(format != NULL);
+    fclose(s_log_file);
+    s_log_file = NULL;
+}
 
+void logger_printf(const char *format, ...)
+{
     va_list arg = NULL;
     va_start(arg, format);
-    vfprintf(thiz->log_fd, format, arg);
+    vfprintf(s_log_file, format, arg);
     va_end(arg);
 }
+

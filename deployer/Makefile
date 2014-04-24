@@ -26,4 +26,4 @@ $(TARGET): $(OBJECTS)
 
 .PHONY: clean
 clean:
-	$(RM) $(OBJECTS) $(TARGET) *~ *.swp log
+	$(RM) $(OBJECTS) $(TARGET) *~ *.swp

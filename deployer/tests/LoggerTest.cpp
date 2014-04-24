@@ -23,24 +23,22 @@ TEST_GROUP(Logger)
 
 TEST(Logger, PrintfToFile)
 {
-    g_logger = logger_create(LOGGER_OUTPUT_TYPE_FILE, "../log");
-    POINTERS_EQUAL(NULL, !g_logger);
+    LONGS_EQUAL(RET_OK, logger_init("logger_test.log"));
 
-    logger_printf(g_logger, "test logger module.\n");
-    logger_printf(g_logger, "test output with arg(int): %d\n", 1);
-    logger_printf(g_logger, "test output with arg(char *): %s\n", "Hello Logger");
+    logger_printf("test logger module.\n");
+    logger_printf("test output with arg(int): %d\n", 1);
+    logger_printf("test output with arg(char *): %s\n", "Hello Logger");
 
-    logger_destroy(g_logger);
+    logger_close();
 }
 
 TEST(Logger, PrintfToStdout)
 {
-    g_logger = logger_create(LOGGER_OUTPUT_TYPE_STDOUT, NULL);
-    POINTERS_EQUAL(NULL, !g_logger);
+    LONGS_EQUAL(RET_OK, logger_init(NULL));
 
-    logger_printf(g_logger, "test logger module.\n");
-    logger_printf(g_logger, "test output with arg(int): %d\n", 1);
-    logger_printf(g_logger, "test output with arg(char *): %s\n", "Hello Logger");
+    logger_printf("test logger module.\n");
+    logger_printf("test output with arg(int): %d\n", 1);
+    logger_printf("test output with arg(char *): %s\n", "Hello Logger");
 
-    logger_destroy(g_logger);
+    logger_close();
 }

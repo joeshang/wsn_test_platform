@@ -68,7 +68,7 @@ static Ret ftp_uploader_read_response(FtpUploader *thiz)
     else
     {
         thiz->response[readn] = 0;
-        logger_printf(g_logger, "%s", thiz->response);
+        logger_printf("%s", thiz->response);
 
         int reply_code;
         if (ftp_uploader_parse_reply_code(thiz->response, &reply_code) != RET_OK)
@@ -327,7 +327,7 @@ Ret ftp_uploader_login(FtpUploader *thiz, const char *user_name, const char *pas
     
     /* send command: USER user_namename\r\n */ 
     snprintf(send_buf, send_buf_size, "USER %s\r\n", user_name);
-    logger_printf(g_logger, "%s", send_buf);
+    logger_printf("%s", send_buf);
     write(thiz->command_socket, send_buf, strlen(send_buf));
     if (ftp_uploader_read_response(thiz) != RET_OK)
     {
@@ -336,7 +336,7 @@ Ret ftp_uploader_login(FtpUploader *thiz, const char *user_name, const char *pas
 
     /* send command: PASS password\r\n */ 
     snprintf(send_buf, send_buf_size, "PASS %s\r\n", password);
-    logger_printf(g_logger, "%s", send_buf);
+    logger_printf("%s", send_buf);
     write(thiz->command_socket, send_buf, strlen(send_buf));
     if (ftp_uploader_read_response(thiz) != RET_OK)
     {
@@ -358,7 +358,7 @@ Ret ftp_uploader_set_binary_mode(FtpUploader *thiz)
 
     Ret ret = RET_OK;
     const char *send_buf = "TYPE I\r\n";
-    logger_printf(g_logger, "%s", send_buf);
+    logger_printf("%s", send_buf);
     write(thiz->command_socket, send_buf, strlen(send_buf));
     if (ftp_uploader_read_response(thiz) != RET_OK)
     {
@@ -378,7 +378,7 @@ Ret ftp_uploader_put(FtpUploader *thiz, int upload_fd, const char *file_name)
 
     /* entering passive mode */
     sprintf(send_buf, "PASV\r\n");
-    logger_printf(g_logger, "%s", send_buf);
+    logger_printf("%s", send_buf);
     write(thiz->command_socket, send_buf, strlen(send_buf));
     if (ftp_uploader_read_response(thiz) != RET_OK)
     {
@@ -413,7 +413,7 @@ Ret ftp_uploader_put(FtpUploader *thiz, int upload_fd, const char *file_name)
 
     /* send command: "STOR filename\r\n" */
     snprintf(send_buf, SEND_BUFFER_SIZE, "STOR %s\r\n", file_name);
-    logger_printf(g_logger, "%s", send_buf);
+    logger_printf("%s", send_buf);
     write(thiz->command_socket, send_buf, strlen(send_buf));
     if (ftp_uploader_read_response(thiz) != RET_OK)
     {
@@ -453,7 +453,7 @@ Ret ftp_uploader_close(FtpUploader *thiz)
     Ret ret = RET_OK;
 
     const char *send_buf = "QUIT\r\n";
-    logger_printf(g_logger, "%s", send_buf);
+    logger_printf("%s", send_buf);
     write(thiz->command_socket, send_buf, strlen(send_buf));
     if (ftp_uploader_read_response(thiz) != RET_OK)
     {

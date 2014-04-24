@@ -13,21 +13,9 @@
 
 DECLS_BEGIN
 
-struct _Logger;
-typedef struct _Logger Logger;
-
-extern Logger *g_logger;
-
-enum _LoggerFileType
-{
-    LOGGER_OUTPUT_TYPE_FILE,
-    LOGGER_OUTPUT_TYPE_STDOUT
-};
-
-Logger *logger_create(int log_file_type, const char *log_path);
-void logger_destroy(Logger *thiz);
-
-void logger_printf(Logger *thiz, const char *format, ...);
+Ret  logger_init(const char *log_path);
+void logger_close();
+void logger_printf(const char *format, ...);
 
 DECLS_END
 

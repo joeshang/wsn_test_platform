@@ -33,4 +33,4 @@ $(TARGET): $(OBJECTS)
 
 .PHONY: clean
 clean:
-	$(RM) $(OBJECTS) $(TARGET)
+	$(RM) $(OBJECTS) $(TARGET) *~ logger_test.log
