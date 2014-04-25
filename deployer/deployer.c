@@ -430,6 +430,7 @@ static Ret deployer_parse_config_file(Deployer *thiz, cJSON *root)
         goto fail;
     }
 
+    cJSON_Delete(root);
     return ret;
 
 fail:
