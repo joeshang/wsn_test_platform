@@ -23,12 +23,26 @@
 #define TELNET_COMMAND      "db/telnet/command"
 
 const char *target_list[] = {
-    "192.168.1.230"
+    "172.16.1.30",
+    "172.16.1.31",
+    "172.16.1.32",
+    "172.16.1.33",
+    "172.16.1.34",
+    "172.16.1.35",
+    "172.16.1.36",
+    "172.16.1.37",
+    "172.16.1.38",
+    "172.16.1.39",
+    "172.16.1.40",
+    "172.16.1.41",
+    "172.16.1.42",
+    "172.16.1.43",
+    "172.16.1.44"
 };
 
 const char *file_list[] = {
-    "db/ftp/1.txt",
-    "db/ftp/2.txt"
+    "db/ftp/deployer_ftp.txt",
+    "db/ftp/rcS"
 };
 
 int main(int argc, char *argv[])

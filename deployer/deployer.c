@@ -326,7 +326,7 @@ static Ret deployer_parse_deploy_targets(Deployer *thiz, cJSON *root)
         return RET_FAIL;
     }
     /* malloc deploy target list */
-    thiz->deploy_target_list = (char **)malloc(thiz->deploy_target_count);
+    thiz->deploy_target_list = (char **)malloc(thiz->deploy_target_count * sizeof(char *));
     if (thiz->deploy_target_list == NULL)
     {
         fprintf(stderr, "malloc deploy target list failed.\n");
@@ -369,7 +369,7 @@ static Ret deployer_parse_deploy_files(Deployer *thiz, cJSON *root)
         return RET_FAIL;
     }
     /* malloc deploy file list and init */
-    thiz->deploy_file_list = (int *)malloc(thiz->deploy_file_count);
+    thiz->deploy_file_list = (int *)malloc(thiz->deploy_file_count * sizeof(int));
     if (thiz->deploy_file_list == NULL)
     {
         fprintf(stderr, "malloc deploy file list failed.\n");
