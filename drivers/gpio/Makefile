@@ -1,5 +1,5 @@
 ifneq ($(KERNELRELEASE), )
-	obj-m := oint_leds.o
+	obj-m := oint_gpio.o
 else
 	KERNELDIR ?= ~/board/mini6410/linux-2.6.38
 	PWD := $(shell pwd)
