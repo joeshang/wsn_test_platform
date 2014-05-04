@@ -38,8 +38,8 @@
  *  低电平--FPGA的SDRAM有数据
  *  高电平--FPGA的SDRAM为空
  */
-#define FPGA_RESET_ENABLE       0
-#define FPGA_RESET_DISABLE      1
+#define FPGA_SDRAM_HAS_DATA     0
+#define FPGA_SDRAM_EMPTY        1
 
 enum _GpioCommand
 {

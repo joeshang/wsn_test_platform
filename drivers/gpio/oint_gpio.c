@@ -46,11 +46,11 @@ static int oint_gpios[] = {
     S3C64XX_GPQ(4), // green s7
     S3C64XX_GPQ(6), // green s8
     // current sample switch
-    S3C64XX_GPN(9),
+    S3C64XX_GPN(9), // alias EINT9
     // fpga reset
-    S3C64XX_GPN(11),
+    S3C64XX_GPN(11),// alias EINT11
     // fpga SDRAM status
-    S3C64XX_GPL(8),
+    S3C64XX_GPL(8), // alias EINT16
 };
 
 static long oint_gpio_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)

@@ -1,7 +1,7 @@
 CC = arm-none-linux-gnueabi-gcc
-CFLAGS = -g -Wall -I../led
+CFLAGS = -g -Wall -I../gpio
 LDFLAGS =
-TARGETS = oint_leds_test
+TARGETS = oint_gpio_test
 
 all: $(TARGETS)
 
