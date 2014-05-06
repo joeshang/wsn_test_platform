@@ -1,5 +1,6 @@
 *.o
 *.swp
 *~
+tags
 deployer/ref/
 deployer/db/

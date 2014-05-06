@@ -7,7 +7,8 @@ CPPUTEST_HOME = /home/joe/app/cpputest-3.5
 CPPFLAGS += -c -Wall -D_DEBUG \
 			-I$(CPPUTEST_HOME)/include \
 			-I../lib/libtelnet/ \
-			-I../
+			-I../\
+			-I../../common
 
 LD_LIBRARIES = -L$(CPPUTEST_HOME)/lib -lCppUTest -lCppUTestExt
 
@@ -17,7 +18,7 @@ OBJECTS += AllTests.o \
 		   LoggerTest.o \
 		   FtpUploaderTest.o \
 		   TelnetCommanderTest.o
-OBJECTS += ../logger.o \
+OBJECTS += ../../common/logger.o \
 		   ../ftp_uploader.o \
 		   ../telnet_commander.o \
 		   ../lib/libtelnet/libtelnet.o
