@@ -1,12 +1,14 @@
 CC = gcc
-CFLAGS += -g -Wall -c
+CFLAGS += -g -Wall -c -D_DEBUG
 LDFLAGS = 
 
 COMMON_DIR = ../common
-CFLAGS += -I$(COMMON_DIR)
+CFLAGS += -I$(COMMON_DIR)\
+		  -I../drivers/gpio
 
 TARGET = oint_board_agent
-OBJECTS = main.o
+OBJECTS = main.o\
+		  gather_board.o
 
 all: $(TARGET)
 

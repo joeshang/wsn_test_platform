@@ -18,5 +18,9 @@ Board Agent负责
 3. 好的编程风格：原有代码真是不能看，因此重构的代码必须做个好榜样
 
 ### 2.2 结构（Structure）
+
+#### GatherBoard
+
+封装与FPGA板的通信（包括GPIO跟SPI）。由于FPGA板主要负责收集节点数据，因此起名为GatherBoard。对应源文件`gather_board.c`
  
 ## 3. 用法
