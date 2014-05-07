@@ -1,4 +1,5 @@
 CC = gcc
+#CC = arm-none-linux-gnueabi-gcc
 CFLAGS += -g -Wall -c -D_DEBUG
 LDFLAGS = 
 
@@ -8,15 +9,17 @@ CFLAGS += -I$(COMMON_DIR)\
 
 TARGET = oint_board_agent
 OBJECTS = main.o\
-		  gather_board.o
+		  gather_board.o\
+		  data_uploader.o\
+		  util.o
 
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $< $(LDFLAGS) -o $@
+	$(CC) $^ $(LDFLAGS) -o $@
 
-%.o: %.c
-	$(CC) $(CFLAGS) $^ -o $@
+%.o: %.c, %.h
+	$(CC) $(CFLAGS) $< -o $@
 
 .PHONY: clean
 clean:

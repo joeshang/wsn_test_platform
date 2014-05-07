@@ -1,6 +1,6 @@
 /**
  * @file gather_board.h
- * @brief 
+ * @brief 封装与FPGA板的通信（包括GPIO跟SPI）
  * @author Joe Shang <shangchuanren@gmail.com>
  * @version 
  * @date 2014-05-06
