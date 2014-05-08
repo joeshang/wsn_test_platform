@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <memory.h>
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <sys/socket.h>
@@ -17,22 +18,146 @@
 #include "data_uploader.h"
 #include "oint_protocol.h"
 #include "util.h"
+#include "../common/dlist.h"
 
-#define CMD_B_BUFFER_SIZE               40
+#define NODE_NUM        8
 
 typedef struct _Command
 {
     int port_id;
     int type;
-    int to_board_cmd_len;
-    unsigned char to_board_cmd[CMD_B_BUFFER_SIZE];
+    int board_packet_len;
+    uint8_t board_packet[CMD_B_PACKET_MAX_SIZE];
 }Command;
 
 struct _DataUploader
 {
     int uploader_socket;    // 上位机连接socket(TCP)
     /*int display_socket;     // 本机Qt显示socket(UDP)*/
+    DList *command_set[NODE_NUM];
 };
+
+static void handle_command(DataUploader *thiz, Command *command);
+static Ret  process_one_command(DataUploader *thiz);
+static Ret  process_one_response(DataUploader *thiz);
+
+static void handle_command(DataUploader *thiz, Command *command)
+{
+    uint8_t payload_data;
+
+    if (command->type == PAYLOAD_TYPE_CNTL_POWER_SWITCH)
+    {
+        uint8_t to_board;
+        payload_data = command->board_packet[CMD_B_TYPE_INDEX + 1];
+
+        if (payload_data == 0)  /* 关闭节点 */
+        {
+            to_board = CMD_B_NODE_CLOSE_BASE + command->port_id - 1;
+        }
+        else /* 打开节点 */
+        {
+            to_board = CMD_B_NODE_OPEN_BASE + command->port_id - 1;
+        }
+
+        // TODO: gather_board_write(board, &to_board, 1);
+    }
+    else
+    {
+        // TODO: gather_board_write(board, &command->board_packet, command->board_packet_len);
+        
+        int wait_for_response = TRUE;
+        switch (command->type)
+        {
+            case PAYLOAD_TYPE_QUERY_CURRENT:
+            case PAYLOAD_TYPE_CNTL_POWER_SWITCH:
+                wait_for_response = FALSE;
+            default:
+                wait_for_response = TRUE;
+                break;
+        }
+
+        if (wait_for_response == TRUE)
+        {
+            dlist_append(thiz->command_set[command->port_id - 1], (void *)command);
+        }
+    }
+
+    debug("[DataUploader]: send to node %d ok\n", command->port_id);
+}
+
+static Ret  process_one_command(DataUploader *thiz)
+{
+    return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
+
+    int n;
+    uint16_t command_size = 0;
+
+    Command *command = (Command *)malloc(sizeof(Command));
+    if (command == NULL)
+    {
+        fprintf(stderr, "malloc command failed\n");
+        goto fail;
+    }
+
+    /* 1. 读取命令包的长度跟PortID */ 
+    n = read(thiz->uploader_socket, &command_size, CMD_S_HEADER_LEN);
+    if (n == -1)
+    {
+        fprintf(stderr, "data uploader read command content failed\n");
+        goto fail;
+    }
+    else if (n == 0)
+    {
+        fprintf(stderr, "peer client close connection\n");
+        goto fail;
+    }
+    command_size = ntohs(command_size);
+
+    /* 2. 读取命令包中发送至FPGA板的命令 */
+    n = read(thiz->uploader_socket, command->board_packet, command_size);
+    if (n == -1)
+    {
+        fprintf(stderr, "data uploader read command content failed\n");
+        goto fail;
+    }
+    else if (n == 0)
+    {
+        fprintf(stderr, "peer client close connection\n");
+        goto fail;
+    }
+
+    /* 3. 根据从上位机接收的命令包初始化Command */
+    command->board_packet_len = command_size;
+    command->port_id = command->board_packet[CMD_B_PORT_ID_INDEX];
+    command->type = command->board_packet[CMD_B_TYPE_INDEX];
+
+    debug("[DataUploader]: receive command -> ");
+#ifdef _DEBUG
+    print_hex(command->board_packet, command->board_packet_len, stdout);
+#endif
+
+    handle_command(thiz, command);        
+
+    return RET_OK;
+fail:
+    SAFE_FREE(command);
+    return RET_FAIL;
+}
+
+static Ret  process_one_response(DataUploader *thiz)
+{
+    return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
+
+    return RET_OK;
+}
+
+static void command_destroy_cb(void *ctx, void *data)
+{
+    if (data != NULL)
+    {
+        free(data);
+    }
+}
 
 DataUploader *data_uploader_create()
 {
@@ -41,6 +166,12 @@ DataUploader *data_uploader_create()
     if (thiz != NULL)
     {
         thiz->uploader_socket = -1;
+
+        int i;
+        for (i = 0; i < NODE_NUM; i++)
+        {
+            thiz->command_set[i] = dlist_create(command_destroy_cb, NULL);
+        }
     }
 
     return thiz;
@@ -55,6 +186,12 @@ void data_uploader_destroy(DataUploader *thiz)
             close(thiz->uploader_socket);
         }
 
+        int i;
+        for (i = 0; i < NODE_NUM; i++)
+        {
+            dlist_destroy(thiz->command_set[i]);
+        }
+
         free(thiz);
     }
 }
@@ -66,63 +203,41 @@ Ret data_uploader_process(DataUploader *thiz, int socket)
 
     thiz->uploader_socket = socket;
 
-    int n;
-    uint16_t command_size = 0;
-    Command *command = NULL;
-
-    /* 
-     * 处理流程就是：
-     * 1. 等待上位机发送命令
-     * 2. 处理命令
-     * 3. 回到1，直到上位机关闭连接，退出处理流程
-     */
-    command = (Command *)malloc(sizeof(Command));
     for (;;)
     {
-        if (command == NULL)
+        /* 以一条命令为单位，接收命令，读取命令，直到上位机关闭连接才退出处理流程 */
+        if (process_one_command(thiz) != RET_OK)
         {
-            fprintf(stderr, "malloc command failed\n");
             break;
         }
-
-        /* 1. 读取命令包的长度跟PortID */ 
-        read(thiz->uploader_socket, &command_size, CMD_U_LENGTH_WIDTH);
-        read(thiz->uploader_socket, &command->port_id, CMD_U_PORT_ID_WIDTH);
-        command_size = ntohs(command_size);
-        command->to_board_cmd_len = command_size - 1;
-
-        /* 2. 读取命令包中发送至FPGA板的命令 */
-        n = read(thiz->uploader_socket, command->to_board_cmd, command->to_board_cmd_len);
-        if (n == -1)
-        {
-            fprintf(stderr, "data uploader read command content failed\n");
-            break;
-        }
-        else if (n == 0)
-        {
-            fprintf(stderr, "peer client close connection\n");
-            break;
-        }
-
-        /* 3. 根据从上位机接收的命令包初始化Command */
-        command->type = command->to_board_cmd[CMD_B_TYPE_INDEX];
-
-        debug("[DataUploader]: receive command -> ");
-#ifdef _DEBUG
-        print_hex(command->to_board_cmd, command->to_board_cmd_len, stdout);
-#endif
     }
 
-    SAFE_FREE(command);
+    /* 在退出处理流程后，关闭连接 */
     close(thiz->uploader_socket);
     thiz->uploader_socket = -1;
 
-    return RET_FAIL;
+    return RET_OK;
 }
 
 Ret data_uploader_reset(DataUploader *thiz)
 {
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
+
+    int i;
+    int j;
+    int size;
+
+    /* 删除命令集合中的所有命令 */
+    for (i = 0; i < NODE_NUM; i++)
+    {
+        size = dlist_length(thiz->command_set[i]);
+        for (j = 0; i < size; j++)
+        {
+            dlist_delete(thiz->command_set[i], j);
+        }
+    }
+
+    thiz->uploader_socket = -1;
 
     return RET_OK;
 }

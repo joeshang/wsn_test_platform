@@ -11,7 +11,8 @@ TARGET = oint_board_agent
 OBJECTS = main.o\
 		  gather_board.o\
 		  data_uploader.o\
-		  util.o
+		  util.o\
+		  $(COMMON_DIR)/dlist.o
 
 all: $(TARGET)
 
