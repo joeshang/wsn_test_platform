@@ -12,14 +12,14 @@ CFLAGS += -I$(LIB_DIR)/cJSON/ \
 TARGET = deployer
 
 OBJECTS += main.o \
-		   dlist.o \
 		   ftp_uploader.o \
 		   telnet_commander.o \
 		   deployer.o
 
 OBJECTS += $(LIB_DIR)/cJSON/cJSON.o\
 		   $(LIB_DIR)/libtelnet/libtelnet.o\
-		   $(COMMON_DIR)/logger.o
+		   $(COMMON_DIR)/logger.o\
+		   $(COMMON_DIR)/dlist.o
 
 $(TARGET): $(OBJECTS)
 	$(CC) $^ $(LDFLAGS) -o $@
