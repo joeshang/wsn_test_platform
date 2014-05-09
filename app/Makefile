@@ -10,7 +10,7 @@ CFLAGS += -I$(COMMON_DIR)\
 TARGET = oint_board_agent
 OBJECTS = main.o\
 		  gather_board.o\
-		  data_uploader.o\
+		  packet_transfer.o\
 		  util.o\
 		  $(COMMON_DIR)/dlist.o
 

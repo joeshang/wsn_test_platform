@@ -1,5 +1,5 @@
 /**
- * @file data_uploader.h
+ * @file packet_transfer.c
  * @brief 负责接收并解析上位机发送命令，发送给FPGA板，并从FPGA板读取数据，发回上位机
  * @author Joe Shang <shangchuanren@gmail.com>
  * @version 
@@ -15,7 +15,7 @@
 #include <netinet/ip.h>
 #include <sys/socket.h>
 
-#include "data_uploader.h"
+#include "packet_transfer.h"
 #include "oint_protocol.h"
 #include "util.h"
 #include "../common/dlist.h"
@@ -30,18 +30,18 @@ typedef struct _Command
     uint8_t board_packet[CMD_B_PACKET_MAX_SIZE];
 }Command;
 
-struct _DataUploader
+struct _PacketTransfer
 {
     int uploader_socket;    // 上位机连接socket(TCP)
     /*int display_socket;     // 本机Qt显示socket(UDP)*/
     DList *command_set[NODE_NUM];
 };
 
-static void handle_command(DataUploader *thiz, Command *command);
-static Ret  process_one_command(DataUploader *thiz);
-static Ret  process_one_response(DataUploader *thiz);
+static void handle_command(PacketTransfer *thiz, Command *command);
+static Ret  process_one_command(PacketTransfer *thiz);
+static Ret  process_one_response(PacketTransfer *thiz);
 
-static void handle_command(DataUploader *thiz, Command *command)
+static void handle_command(PacketTransfer *thiz, Command *command)
 {
     uint8_t payload_data;
 
@@ -82,10 +82,10 @@ static void handle_command(DataUploader *thiz, Command *command)
         }
     }
 
-    debug("[DataUploader]: send to node %d ok\n", command->port_id);
+    debug("[PacketTransfer]: send to node %d ok\n", command->port_id);
 }
 
-static Ret  process_one_command(DataUploader *thiz)
+static Ret  process_one_command(PacketTransfer *thiz)
 {
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
 
@@ -131,7 +131,7 @@ static Ret  process_one_command(DataUploader *thiz)
     command->port_id = command->board_packet[CMD_B_PORT_ID_INDEX];
     command->type = command->board_packet[CMD_B_TYPE_INDEX];
 
-    debug("[DataUploader]: receive command -> ");
+    debug("[PacketTransfer]: receive command -> ");
 #ifdef _DEBUG
     print_hex(command->board_packet, command->board_packet_len, stdout);
 #endif
@@ -144,7 +144,7 @@ fail:
     return RET_FAIL;
 }
 
-static Ret  process_one_response(DataUploader *thiz)
+static Ret  process_one_response(PacketTransfer *thiz)
 {
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
 
@@ -159,9 +159,9 @@ static void command_destroy_cb(void *ctx, void *data)
     }
 }
 
-DataUploader *data_uploader_create()
+PacketTransfer *packet_transfer_create()
 {
-    DataUploader *thiz = (DataUploader *)malloc(sizeof(DataUploader));
+    PacketTransfer *thiz = (PacketTransfer *)malloc(sizeof(PacketTransfer));
 
     if (thiz != NULL)
     {
@@ -177,7 +177,7 @@ DataUploader *data_uploader_create()
     return thiz;
 }
 
-void data_uploader_destroy(DataUploader *thiz)
+void packet_transfer_destroy(PacketTransfer *thiz)
 {
     if (thiz != NULL)
     {
@@ -196,7 +196,7 @@ void data_uploader_destroy(DataUploader *thiz)
     }
 }
 
-Ret data_uploader_process(DataUploader *thiz, int socket)
+Ret packet_transfer_process(PacketTransfer *thiz, int socket)
 {
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
     return_val_if_fail(socket != -1, RET_INVALID_PARAMS);
@@ -219,7 +219,7 @@ Ret data_uploader_process(DataUploader *thiz, int socket)
     return RET_OK;
 }
 
-Ret data_uploader_reset(DataUploader *thiz)
+Ret packet_transfer_reset(PacketTransfer *thiz)
 {
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
 
