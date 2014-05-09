@@ -72,10 +72,16 @@
  但是，有几种情况是直接跟FPGA交互，没有NodePacket，只有一个字节，
  包括重编程跟对节点的开断电，格式为：
                         < CommandType(1B) >
- Board层回应在Node层回应包前加入PortID字段，TimeStamp+Data长度字段，
- TimeStamp字段，在Node层回应包尾部加入CRC字段，格式如下：
-          < PortID(1B) | TimeStampAndNodeLength(2B) |
-            TimeStamp(4B) | NodePacket | CRC(2B) >
+ Board层回应为标准16个字节长度，FPGA从Node层得到的回应包如果一个包
+ 放不下，则会拆成多个16字节包。有两种类型回应包：节点数据包跟电流包，
+ 格式如下：
+   < PortID_DataLength(1B) | TimeStamp(4B) | Data(10B) | Even(1B) >
+ PortID_DataLength中高4位为PortID，低4位为DataLength
+ 对于节点数据包而言：
+   DataLength为数据长度，Data不够10B的填充0x0
+ 对于电流数据包而言：
+   DataLength为固定的0xF，Data中前2字节为电流数据，其余填充0x11，
+ 奇偶校验为固定的0x11
  ******************************************************************/
 #define CMD_B_PACKET_MAX_SIZE               50
 #define CMD_B_HEADER_LEN                    1
@@ -88,22 +94,27 @@
 #define CMD_B_NODE_OPEN_BASE                0x30    /* 打开节点 */
 #define CMD_B_NODE_CLOSE_BASE               0x40    /* 关闭节点 */
 
-#define RESP_B_PACKET_MAX_SIZE              512
-#define RESP_B_HEADER_LEN                   7
-#define RESP_B_PORT_ID_WIDTH                1
-#define RESP_B_TIME_NODE_LEN_WIDTH          2
-#define RESP_B_CRC_WIDTH                    2
-#define RESP_B_PORT_ID_INDEX                0
-#define RESP_B_TIME_NODE_LEN_INDEX          1
-#define RESP_B_TYPE_INDEX                   (NODE_TYPE_INDEX + RESP_B_HEADER_LEN)
+#define RESP_B_PACKET_SIZE                  16
 
 /******************************************************************
                              Server层
- Server层只是简单的在Board层的数据包前加入表示Board层数据包的长度
- 字段，格式如下：
+ Server层命令只是简单的在Board层的数据包前加入表示Board层数据包的
+ 长度字段，格式如下：
              < BoardPacketLength(2B) | BoardPacket >
+ Server层回应在Node层回应包前加入包长度字段，PortID字段，TimeStamp
+ +Data长度字段，TimeStamp字段，在Node层回应包尾部加入CRC字段，格式
+ 如下：
+    < PacketLength(2B) | PortID(1B) | TimeStampAndNodeLength(2B) |
+            TimeStamp(4B) | NodePacket | CRC(2B) >
  ******************************************************************/
 #define CMD_S_HEADER_LEN                    2
-#define RESP_S_HEADER_LEN                   2
+#define RESP_S_HEADER_LEN                   9
+#define RESP_S_PACKET_MAX_SIZE              512
+#define RESP_S_PORT_ID_WIDTH                1
+#define RESP_S_TIME_NODE_LEN_WIDTH          2
+#define RESP_S_CRC_WIDTH                    2
+#define RESP_S_PORT_ID_INDEX                2
+#define RESP_S_TIME_NODE_LEN_INDEX          3
+#define RESP_S_TYPE_INDEX                   (NODE_TYPE_INDEX + RESP_B_HEADER_LEN)
 
 #endif
