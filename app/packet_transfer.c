@@ -24,20 +24,32 @@
 
 typedef struct _Command
 {
-    int port_id;
-    int type;
-    int board_packet_len;
-    uint8_t board_packet[CMD_B_PACKET_MAX_SIZE];
+    uint8_t port_id;
+    uint8_t type;
+    uint16_t to_board_packet_len;
+    uint8_t to_board_packet[CMD_B_PACKET_MAX_SIZE];
 }Command;
+
+typedef struct _Response
+{
+    uint8_t packet_len;
+    uint8_t port_id;
+    uint8_t time_stamp[RESP_B_TIME_STAMP_WIDTH];
+    uint16_t node_packet_len;
+    uint8_t node_packet[NODE_PACKET_MAX_SIZE];
+    uint8_t is_finished;
+}Response;
 
 struct _PacketTransfer
 {
     int uploader_socket;    // 上位机连接socket(TCP)
     /*int display_socket;     // 本机Qt显示socket(UDP)*/
     DList *command_set[NODE_NUM];
+    Response response;
 };
 
 static void handle_command(PacketTransfer *thiz, Command *command);
+static void send_response(PacketTransfer *thiz);
 static Ret  process_one_command(PacketTransfer *thiz);
 static Ret  process_one_response(PacketTransfer *thiz);
 
@@ -45,10 +57,10 @@ static void handle_command(PacketTransfer *thiz, Command *command)
 {
     uint8_t payload_data;
 
-    if (command->type == PAYLOAD_TYPE_CNTL_POWER_SWITCH)
+    if (command->type == NODE_PAYLOAD_TYPE_CNTL_POWER_SWITCH)
     {
         uint8_t to_board;
-        payload_data = command->board_packet[CMD_B_TYPE_INDEX + 1];
+        payload_data = command->to_board_packet[CMD_B_TYPE_INDEX + 1];
 
         if (payload_data == 0)  /* 关闭节点 */
         {
@@ -63,13 +75,13 @@ static void handle_command(PacketTransfer *thiz, Command *command)
     }
     else
     {
-        // TODO: gather_board_write(board, &command->board_packet, command->board_packet_len);
+        // TODO: gather_board_write(board, &command->to_board_packet, command->to_board_packet_len);
         
         int wait_for_response = TRUE;
         switch (command->type)
         {
-            case PAYLOAD_TYPE_QUERY_CURRENT:
-            case PAYLOAD_TYPE_CNTL_POWER_SWITCH:
+            case NODE_PAYLOAD_TYPE_QUERY_CURRENT:
+            case NODE_PAYLOAD_TYPE_CNTL_POWER_SWITCH:
                 wait_for_response = FALSE;
             default:
                 wait_for_response = TRUE;
@@ -90,7 +102,6 @@ static Ret  process_one_command(PacketTransfer *thiz)
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
 
     int n;
-    uint16_t command_size = 0;
 
     Command *command = (Command *)malloc(sizeof(Command));
     if (command == NULL)
@@ -99,11 +110,11 @@ static Ret  process_one_command(PacketTransfer *thiz)
         goto fail;
     }
 
-    /* 1. 读取命令包的长度跟PortID */ 
-    n = read(thiz->uploader_socket, &command_size, CMD_S_HEADER_LEN);
+    /* 1. 读取命令包中发送至FPGA包的长度 */ 
+    n = read(thiz->uploader_socket, &command->to_board_packet_len, CMD_S_HEADER_LEN);
     if (n == -1)
     {
-        fprintf(stderr, "data uploader read command content failed\n");
+        fprintf(stderr, "data uploader read command to_board_packet_len failed\n");
         goto fail;
     }
     else if (n == 0)
@@ -111,13 +122,13 @@ static Ret  process_one_command(PacketTransfer *thiz)
         fprintf(stderr, "peer client close connection\n");
         goto fail;
     }
-    command_size = ntohs(command_size);
+    command->to_board_packet_len = ntohs(command->to_board_packet_len);
 
-    /* 2. 读取命令包中发送至FPGA板的命令 */
-    n = read(thiz->uploader_socket, command->board_packet, command_size);
+    /* 2. 读取命令包中发送至FPGA板的包 */
+    n = read(thiz->uploader_socket, command->to_board_packet, command->to_board_packet_len);
     if (n == -1)
     {
-        fprintf(stderr, "data uploader read command content failed\n");
+        fprintf(stderr, "data uploader read command to_board_packet failed\n");
         goto fail;
     }
     else if (n == 0)
@@ -127,13 +138,12 @@ static Ret  process_one_command(PacketTransfer *thiz)
     }
 
     /* 3. 根据从上位机接收的命令包初始化Command */
-    command->board_packet_len = command_size;
-    command->port_id = command->board_packet[CMD_B_PORT_ID_INDEX];
-    command->type = command->board_packet[CMD_B_TYPE_INDEX];
+    command->port_id = command->to_board_packet[CMD_B_PORT_ID_INDEX];
+    command->type = command->to_board_packet[CMD_B_TYPE_INDEX];
 
     debug("[PacketTransfer]: receive command -> ");
 #ifdef _DEBUG
-    print_hex(command->board_packet, command->board_packet_len, stdout);
+    print_hex(command->to_board_packet, command->to_board_packet_len, stdout);
 #endif
 
     handle_command(thiz, command);        
@@ -147,6 +157,73 @@ fail:
 static Ret  process_one_response(PacketTransfer *thiz)
 {
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
+
+    uint8_t from_board[RESP_B_PACKET_MAX_SIZE];
+
+    /* 1. 从FPGA板读取16字节（因为FPGA发给ARM的数据就是16字节长的包）*/
+    // TODO: gather_board_read(board, &from_board, RESP_B_PACKET_MAX_SIZE);
+    
+    /* 2. 对读取的包进行奇偶校验 */
+    if (even_check(from_board, RESP_B_PACKET_MAX_SIZE) == FALSE)
+    {
+        /* 检验没有通过，退出处理流程 */
+        return RET_FAIL;
+    }
+
+    /* 3. 根据第一个字节判断是什么类型的包 */
+    uint8_t header = from_board[RESP_B_PORTID_DATALEN_INDEX];
+    uint8_t data_len = RESP_B_GET_DATA_LEN(header);
+
+    /* 全是0xFF的包跟数据长度超出正常范围的包都是无效包，不处理，直接退出流程 */
+    if (header == RESP_B_PACKET_TYPE_INVALID
+        || (data_len > RESP_B_DATA_LEN_MAX && data_len != RESP_B_PACKET_TYPE_CURRENT))
+    {
+        return RET_FAIL;
+    }
+
+
+    /* 电流包 */
+    if (data_len == RESP_B_PACKET_TYPE_CURRENT)
+    {
+        thiz->response.port_id = RESP_B_GET_PORT_ID(header);
+        memcpy(&thiz->response.time_stamp,
+                from_board + RESP_B_TIME_STAMP_INDEX,
+                RESP_B_TIME_STAMP_WIDTH);
+
+        /* 生成规范的电流包格式（与数据包格式相同）*/
+        memset(thiz->response.node_packet, 0, thiz->response.node_packet_len);
+        /* 1. 分隔符（头部） */
+        thiz->response.node_packet[NODE_DELIMITER_INDEX] = NODE_DELIMITER;
+        /* 2. 数据方向 */
+        thiz->response.node_packet[NODE_DIRECTION_INDEX] = NODE_DIRECTION_FROM_NODE;
+        /* 3. 节点号，放在SourcePortID处，表明是哪个节点的电流包 */
+        thiz->response.node_packet[NODE_SRC_NODE_ID_INDEX] = thiz->response.port_id;
+        /* 4. Payload长度 */
+        thiz->response.node_packet[NODE_PAYLOAD_LEN_INDEX] = NODE_PAYLOAD_TYPE_WIDTH +  RESP_B_CURRENT_WIDTH;
+        /* 5. Payload中类型设为电流包 */
+        thiz->response.node_packet[NODE_PAYLOAD_TYPE_INDEX] = NODE_PAYLOAD_TYPE_UPLOAD_CURRENT;
+        /* 6. Payload中数据从FPGA发送过来的包中读取 */
+        int copy_count;
+        int index = NODE_PAYLOAD_DATA_INDEX;
+        copy_count = copy_with_process_delimiter(thiz->response.node_packet + index,
+                from_board + RESP_B_CURRENT_INDEX,
+                RESP_B_CURRENT_WIDTH);
+        index += copy_count;
+        /* 7. 计算CRC */
+        // XXX: 生成规范格式的电流包需要计算CRC吗？（Node的CRC主要用于节点与FPGA通信间的验证）
+        uint16_t crc = crc_16_width(thiz->response.node_packet + NODE_DELIMITER_INDEX, index);
+        memcpy(thiz->response.node_packet + index, &crc, NODE_CRC_WIDTH);
+        index += NODE_CRC_WIDTH;
+        /* 8. 分隔符（尾部） */
+        thiz->response.node_packet[index++] = NODE_DELIMITER;
+
+        thiz->response.node_packet_len = index;
+        thiz->response.is_finished = TRUE;
+    }
+    /* 数据包 */
+    else
+    {
+    }
 
     return RET_OK;
 }
@@ -172,6 +249,8 @@ PacketTransfer *packet_transfer_create()
         {
             thiz->command_set[i] = dlist_create(command_destroy_cb, NULL);
         }
+
+        memset(&thiz->response, 0, sizeof(thiz->response));
     }
 
     return thiz;
@@ -202,6 +281,24 @@ Ret packet_transfer_process(PacketTransfer *thiz, int socket)
     return_val_if_fail(socket != -1, RET_INVALID_PARAMS);
 
     thiz->uploader_socket = socket;
+
+    // TODO: create a new thread to read data from board
+    /*for (;;)                                     */
+    /*{                                            */
+    /*    if (process_one_response(thiz) != RET_OK)*/
+    /*    {                                        */
+    /*        [> 重置Response状态 <]           */
+    /*        thiz->response.is_finished = FALSE;  */
+    /*    }                                        */
+
+    /*    if (thiz->response.is_finished == TRUE)  */
+    /*    {                                        */
+    /*        send_response(thiz);                 */
+
+    /*        [> 重置Response状态 <]           */
+    /*        thiz->response.is_finished = FALSE;  */
+    /*    }                                        */
+    /*}                                            */
 
     for (;;)
     {
@@ -237,6 +334,12 @@ Ret packet_transfer_reset(PacketTransfer *thiz)
         }
     }
 
+    memset(&thiz->response, 0, sizeof(thiz->response));
+
+    if (thiz->uploader_socket != -1)
+    {
+        close(thiz->uploader_socket);
+    }
     thiz->uploader_socket = -1;
 
     return RET_OK;

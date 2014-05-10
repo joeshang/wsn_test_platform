@@ -10,6 +10,7 @@
 #define __COMMON_H__
 
 #include <stdio.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 #define DECLS_BEGIN     extern "C" {
