@@ -50,8 +50,11 @@ struct _PacketTransfer
 {
     int uploader_socket;    // 上位机连接socket(TCP)
     /*int display_socket;     // 本机Qt显示socket(UDP)*/
+
     DList *command_set[NODE_NUM];
     Response response;
+    
+    GatherBoard *gather_board;
 };
 
 static Ret  process_one_command(PacketTransfer *thiz);
@@ -174,11 +177,11 @@ static void handle_response(PacketTransfer *thiz)
     /* 能够响应上位机命令，则点亮节点对应的红灯 */
     if (thiz->response.type == NODE_PAYLOAD_TYPE_RESP_NODE_ID)
     {
-        // TODO: gather_board_led_red(gather_board, thiz->response.port_id, LED_ON);
+        gather_board_led_red(thiz->gather_board, thiz->response.port_id, LED_ON);
     }
 
     /* 节点上报数据包，则节点对应的绿灯闪烁一次 */
-    // TODO: gather_board_led_green(gather_board, thiz->response.port_id, LED_ON);
+    gather_board_led_green(thiz->gather_board, thiz->response.port_id, LED_ON);
     
     /* 在命令集合中找到回应对应的命令项并删除 */
     DList *command_list = thiz->command_set[thiz->response.port_id - 1];
@@ -242,6 +245,7 @@ static Ret  process_one_response(PacketTransfer *thiz)
 
     /* 1. 从FPGA板读取16字节（因为FPGA发给ARM的数据就是16字节长的包）*/
     // TODO: gather_board_read(board, &from_board, RESP_B_PACKET_MAX_SIZE);
+    // XXX: 假定从FPGA包中读取的PortID是1-8而不是0-7
 
     debug("[PacketTransfer]: receive response -> ");
 #ifdef _DEBUG
@@ -380,13 +384,19 @@ static void command_destroy_cb(void *ctx, void *data)
     }
 }
 
-PacketTransfer *packet_transfer_create()
+PacketTransfer *packet_transfer_create(GatherBoard *gather_board)
 {
+    if (gather_board == NULL)
+    {
+        return NULL;
+    }
+
     PacketTransfer *thiz = (PacketTransfer *)malloc(sizeof(PacketTransfer));
 
     if (thiz != NULL)
     {
         thiz->uploader_socket = -1;
+        thiz->gather_board = gather_board;
 
         int i;
         for (i = 0; i < NODE_NUM; i++)
@@ -414,6 +424,8 @@ void packet_transfer_destroy(PacketTransfer *thiz)
         {
             dlist_destroy(thiz->command_set[i]);
         }
+
+        thiz->gather_board = NULL;
 
         free(thiz);
     }
@@ -478,8 +490,10 @@ Ret packet_transfer_reset(PacketTransfer *thiz)
         }
     }
 
+    /* 重置回应 */
     memset(&thiz->response, 0, sizeof(thiz->response));
 
+    /* 关闭与上位机连接 */
     if (thiz->uploader_socket != -1)
     {
         close(thiz->uploader_socket);

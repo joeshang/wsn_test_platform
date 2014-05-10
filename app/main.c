@@ -16,6 +16,7 @@
 #include <netinet/in.h>
 
 #include "../common/common.h"
+#include "gather_board.h"
 #include "packet_transfer.h"
 
 #define BACKLOG         5
@@ -67,24 +68,31 @@ int main(int argc, char *argv[])
     int reprogram_socket = -1; 
     int max_fd;
 
-    PacketTransfer *packet_transfer = NULL;
-    if ((packet_transfer = packet_transfer_create()) == NULL)
+    GatherBoard *gather_board = NULL;
+    if ((gather_board = gather_board_create()) == NULL)
     {
-        fprintf(stderr, "create PacketTransfer failed\n");
-        goto fail;
+        fprintf(stderr, "create GatherBoard failed\n");
+        goto exit;
     }
     
+    PacketTransfer *packet_transfer = NULL;
+    if ((packet_transfer = packet_transfer_create(gather_board)) == NULL)
+    {
+        fprintf(stderr, "create PacketTransfer failed\n");
+        goto exit;
+    }
+
     /* 初始化命令数据端口 */
     if ((cmd_data_socket = init_server_listen_at(CMD_DATA_PORT)) == -1)
     {
-        goto fail;
+        goto exit;
     }
     debug("[Init]: command_data socket is listening at port: %d\n", CMD_DATA_PORT);
     
     /* 初始化重编程端口 */
     if ((reprogram_socket = init_server_listen_at(REPROGRAM_PORT)) == -1)
     {
-        goto fail;
+        goto exit;
     }
     debug("[Init]: reprogram socket is listening at port: %d\n", REPROGRAM_PORT);
 
@@ -102,7 +110,7 @@ int main(int argc, char *argv[])
         if (select(max_fd + 1, &listen_set, NULL, NULL, NULL) == -1)
         {
             perror("select error");
-            goto fail;
+            goto exit;
         }
 
         char client_ip_buf[INET_ADDRSTRLEN];
@@ -116,7 +124,7 @@ int main(int argc, char *argv[])
             if ((connect_socket = accept(cmd_data_socket, (struct sockaddr *)&client_addr, &client_addr_len)) == -1)
             {
                 perror("command data accept error");
-                goto fail;
+                goto exit;
             }
 
             inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, client_ip_buf, INET_ADDRSTRLEN);
@@ -133,7 +141,7 @@ int main(int argc, char *argv[])
             if ((connect_socket = accept(reprogram_socket, (struct sockaddr *)&client_addr, &client_addr_len)) == -1)
             {
                 perror("reprogram accept error");
-                goto fail;
+                goto exit;
             }
 
             inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, client_ip_buf, INET_ADDRSTRLEN);
@@ -141,17 +149,13 @@ int main(int argc, char *argv[])
         }
     }
 
+exit:
+    /* 退出时需要释放已经申请的资源 */
     close(cmd_data_socket);
     close(reprogram_socket);
 
     packet_transfer_destroy(packet_transfer);
+    gather_board_destroy(gather_board);
 
     return 0;
-
-fail:
-    /* 非正常退出时需要释放已经申请的资源 */
-    packet_transfer_destroy(packet_transfer);
-
-    /* exit会关闭所有打开的文件描述符 */ 
-    exit(EXIT_FAILURE); 
 }

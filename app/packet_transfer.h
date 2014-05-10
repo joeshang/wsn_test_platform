@@ -10,13 +10,14 @@
 #define __PACKET_TRANSFER_H__
 
 #include "../common/common.h"
+#include "gather_board.h"
 
 DECLS_BEGIN
 
 struct _PacketTransfer;
 typedef struct _PacketTransfer PacketTransfer;
 
-PacketTransfer *packet_transfer_create();
+PacketTransfer *packet_transfer_create(GatherBoard *gather_board);
 void packet_transfer_destroy(PacketTransfer *thiz);
 Ret  packet_transfer_process(PacketTransfer *thiz, int socket);
 Ret  packet_transfer_reset(PacketTransfer *thiz);
