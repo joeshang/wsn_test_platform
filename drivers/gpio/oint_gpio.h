@@ -41,7 +41,7 @@
 #define FPGA_SDRAM_HAS_DATA     0
 #define FPGA_SDRAM_EMPTY        1
 
-/* 每一项对应驱动中GPIO端口描述数组oint_gpio的索引，修改需小心 */
+/* 每一项对应驱动中GPIO端口描述数组oint_gpio的索引，外部不应该使用，修改需小心 */
 enum _GpioIndex
 {
     OINT_LED_RED_S1,

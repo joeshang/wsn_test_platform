@@ -44,38 +44,41 @@
 #define NODE_CRC_WIDTH                          2
 #define NODE_PACKET_MAX_SIZE                    256
 
-#define NODE_DELIMITER                          0x7E
-#define NODE_ESCAPE                             0x7D
-#define NODE_DELIMITER_TRANSFER(c)              ((c) - 0x20)    /* 0x7E -> 0x5E, 0x7D -> 0x5D */
 #define NODE_DIRECTION_TO_NODE                  0x44
 #define NODE_DIRECTION_FROM_NODE                0x45
+
+#define NODE_DELIMITER                          0x7E
+#define NODE_ESCAPE                             0x7D
+#define node_delimiter_transfer(c)              ((c) - 0x20)    /* 0x7E -> 0x5E, 0x7D -> 0x5D */
+
+#define node_type_convert_resp_to_cmd(resp)     ((resp) + 0x20)
 /* 上报数据的类型 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_RECV           0x11    /* 抄送无线接收分组信息 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_SEND           0x12    /* 抄送无线发送分组信息 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_NODE_NUM       0x13    /* 上报节点号 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_CHANNEL        0x14    /* 上报信道 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_RF_POWER       0x15    /* 上报射频功率 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_VENDOR         0x16    /* 上报生产厂商 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_SENSOR_CNT     0x17    /* 上报传感器数量 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_NODE_ID        0x18    /* 上报节点标识 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_CURRENT        0x19    /* 上报电流值 */
-#define NODE_PAYLOAD_TYPE_UPLOAD_RANGE          0x2F    /* 上报支持的测试范围 */
+#define NODE_PAYLOAD_TYPE_RESP_RECV             0x11    /* 抄送无线接收分组信息 */
+#define NODE_PAYLOAD_TYPE_RESP_SEND             0x12    /* 抄送无线发送分组信息 */
+#define NODE_PAYLOAD_TYPE_RESP_NODE_ID          0x13    /* 上报节点号 */
+#define NODE_PAYLOAD_TYPE_RESP_CHANNEL          0x14    /* 上报信道 */
+#define NODE_PAYLOAD_TYPE_RESP_RF_POWER         0x15    /* 上报射频功率 */
+#define NODE_PAYLOAD_TYPE_RESP_VENDOR           0x16    /* 上报生产厂商 */
+#define NODE_PAYLOAD_TYPE_RESP_SENSOR_CNT       0x17    /* 上报传感器数量 */
+#define NODE_PAYLOAD_TYPE_RESP_NODE_INFO        0x18    /* 上报节点标识 */
+#define NODE_PAYLOAD_TYPE_RESP_CURRENT          0x19    /* 上报电流值 */
+#define NODE_PAYLOAD_TYPE_RESP_RANGE            0x2F    /* 上报支持的测试范围 */
 /* 查询和设置命令的类型 */
-#define NODE_PAYLOAD_TYPE_QUERY_RECV            0x31    /* 设置抄送无线接收分组信息 */
-#define NODE_PAYLOAD_TYPE_QUERY_SEND            0x32    /* 设置抄送无线发送分组信息 */
-#define NODE_PAYLOAD_TYPE_QUERY_NODE_NUM        0x33    /* 查询节点号 */
-#define NODE_PAYLOAD_TYPE_QUERY_CHANNEL         0x34    /* 查询信道 */
-#define NODE_PAYLOAD_TYPE_QUERY_RF_POWER        0x35    /* 查询射频功率 */
-#define NODE_PAYLOAD_TYPE_QUERY_VENDOR          0x36    /* 查询生产厂商 */
-#define NODE_PAYLOAD_TYPE_QUERY_SENSOR_CNT      0x37    /* 查询传感器数量 */
-#define NODE_PAYLOAD_TYPE_QUERY_NODE_ID         0x38    /* 查询节点标识 */
-#define NODE_PAYLOAD_TYPE_QUERY_CURRENT         0x39    /* 查询节点电流值 */
-#define NODE_PAYLOAD_TYPE_QUERY_RANGE           0x4F    /* 查询支持的测试范围 */
+#define NODE_PAYLOAD_TYPE_CMD_RECV              0x31    /* 设置抄送无线接收分组信息 */
+#define NODE_PAYLOAD_TYPE_CMD_SEND              0x32    /* 设置抄送无线发送分组信息 */
+#define NODE_PAYLOAD_TYPE_CMD_NODE_ID           0x33    /* 查询节点号 */
+#define NODE_PAYLOAD_TYPE_CMD_CHANNEL           0x34    /* 查询信道 */
+#define NODE_PAYLOAD_TYPE_CMD_RF_POWER          0x35    /* 查询射频功率 */
+#define NODE_PAYLOAD_TYPE_CMD_VENDOR            0x36    /* 查询生产厂商 */
+#define NODE_PAYLOAD_TYPE_CMD_SENSOR_CNT        0x37    /* 查询传感器数量 */
+#define NODE_PAYLOAD_TYPE_CMD_NODE_INFO         0x38    /* 查询节点标识 */
+#define NODE_PAYLOAD_TYPE_CMD_CURRENT           0x39    /* 查询节点电流值 */
+#define NODE_PAYLOAD_TYPE_CMD_RANGE             0x4F    /* 查询支持的测试范围 */
 /* 控制命令的类型 */
-#define NODE_PAYLOAD_TYPE_CNTL_MODIFY_CHANNEL   0x51    /* 修改信道 */
-#define NODE_PAYLOAD_TYPE_CNTL_MODIFY_POWER     0x52    /* 修改功率 */
-#define NODE_PAYLOAD_TYPE_CNTL_REMOTE_PROG      0x53    /* 远程编程 */
-#define NODE_PAYLOAD_TYPE_CNTL_POWER_SWITCH     0x54    /* 开关节点 */
+#define NODE_PAYLOAD_TYPE_CMD_MODIFY_CHANNEL    0x51    /* 修改信道 */
+#define NODE_PAYLOAD_TYPE_CMD_MODIFY_POWER      0x52    /* 修改功率 */
+#define NODE_PAYLOAD_TYPE_CMD_REMOTE_PROG       0x53    /* 远程编程 */
+#define NODE_PAYLOAD_TYPE_CMD_POWER_SWITCH      0x54    /* 开关节点 */
 
 
 /******************************************************************
@@ -119,7 +122,7 @@
 #define RESP_B_TIME_STAMP_WIDTH                4
 #define RESP_B_CURRENT_INDEX                   RESP_B_HEADER_LEN
 #define RESP_B_CURRENT_WIDTH                   2
-#define RESP_B_TYPE_INDEX                      RESP_B_HEADER_LEN + NODE_TYPE_INDEX
+#define RESP_B_TYPE_INDEX                      RESP_B_HEADER_LEN + NODE_PAYLOAD_TYPE_INDEX
 #define RESP_B_EVEN_CHECK_INDEX                (RESP_B_PACKET_MAX_SIZE - 1)
 
 #define RESP_B_PACKET_TYPE_INVALID             0xFF

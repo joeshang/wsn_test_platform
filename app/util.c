@@ -42,7 +42,7 @@ uint32_t copy_with_process_delimiter(uint8_t *dest, const uint8_t *src, uint32_t
         if (value == NODE_DELIMITER || value == NODE_ESCAPE)
         {
             dest[index++] = NODE_ESCAPE;
-            dest[index++] = NODE_DELIMITER_TRANSFER(value);
+            dest[index++] = node_delimiter_transfer(value);
         }
         else
         {
