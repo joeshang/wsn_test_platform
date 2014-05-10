@@ -187,6 +187,53 @@ static void handle_response(PacketTransfer *thiz)
     dlist_delete(command_list, target_index);
 }
 
+static void send_response(PacketTransfer *thiz)
+{
+    uint16_t packet_len = RESP_S_HEADER_LEN + thiz->response.node_packet_len + RESP_S_CRC_WIDTH;
+    uint8_t *packet_buf = (uint8_t *)malloc(packet_len);
+    
+    /* 1. 将包长度加入缓冲区，大端格式 */
+    uint16_t packet_len_send = htons(packet_len);
+    memcpy(packet_buf, 
+           &packet_len_send, 
+           RESP_S_PACKET_LEN_WIDTH);
+
+    /* 2. 将节点号加入缓冲区 */
+    packet_buf[RESP_S_PORT_ID_INDEX] = thiz->response.port_id;
+
+    /* 3. 将时间戳+数据长度加入缓冲区 */
+    uint16_t timestamp_data_len = RESP_S_TIMESTAMP_WIDTH + thiz->response.node_packet_len;
+    timestamp_data_len = htons(timestamp_data_len);
+    memcpy(packet_buf + RESP_S_TIME_NODE_LEN_INDEX, 
+           &timestamp_data_len, 
+           RESP_S_TIME_NODE_LEN_WIDTH);
+
+    /* 4. 将时间戳加入缓冲区，大端格式 */
+    memcpy(packet_buf + RESP_S_TIMESTAMP_INDEX, 
+           thiz->response.time_stamp, 
+           RESP_S_TIMESTAMP_WIDTH);
+
+    /* 5. 将Node包加入缓冲区 */
+    memcpy(packet_buf + RESP_S_HEADER_LEN, 
+           thiz->response.node_packet, 
+           thiz->response.node_packet_len);
+
+    /* 6. 计算2-5的CRC，加入缓冲区，大端格式 */
+    int crc_index = RESP_S_HEADER_LEN + thiz->response.node_packet_len;
+    uint8_t crc = 0;
+    packet_buf[crc_index] = crc;
+
+    debug("[PacketTransfer]: send response -> ");
+#ifdef _DEBUG
+    print_hex(packet_buf, packet_len, stdout);
+#endif
+
+    /* 发送回应 */
+    write(thiz->uploader_socket, packet_buf, packet_len);
+
+    SAFE_FREE(packet_buf);
+}
+
 static Ret  process_one_response(PacketTransfer *thiz)
 {
     return_val_if_fail(thiz != NULL, RET_INVALID_PARAMS);
@@ -314,6 +361,8 @@ static Ret  process_one_response(PacketTransfer *thiz)
             {
                 packet_state = OUT_PACKET;
                 thiz->response.is_finished = TRUE;
+
+                handle_response(thiz);
 
                 return RET_OK;
             }

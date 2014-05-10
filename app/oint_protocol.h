@@ -100,33 +100,33 @@
    DataLength为固定的0xF，Data中前2字节为电流数据，其余填充0x11，
  奇偶校验为固定的0x11
  ******************************************************************/
-#define CMD_B_PACKET_MAX_SIZE                  50
-#define CMD_B_HEADER_LEN                       1
-#define CMD_B_PORT_ID_INDEX                    0
-#define CMD_B_TYPE_INDEX                       (NODE_PAYLOAD_TYPE_INDEX + CMD_B_HEADER_LEN)
+#define CMD_B_PACKET_MAX_SIZE                   50
+#define CMD_B_HEADER_LEN                        1
+#define CMD_B_PORT_ID_INDEX                     0
+#define CMD_B_TYPE_INDEX                        (NODE_PAYLOAD_TYPE_INDEX + CMD_B_HEADER_LEN)
 
 /* 直接控制FPGA的命令格式为：Base + NodeID - 1 */
-#define CMD_B_REPROG_START_BASE                0x10    /* 开始重编程 */
-#define CMD_B_REPROG_STOP_BASE                 0x20    /* 停止重编程 */
-#define CMD_B_NODE_OPEN_BASE                   0x30    /* 打开节点 */
-#define CMD_B_NODE_CLOSE_BASE                  0x40    /* 关闭节点 */
+#define CMD_B_REPROG_START_BASE                 0x10    /* 开始重编程 */
+#define CMD_B_REPROG_STOP_BASE                  0x20    /* 停止重编程 */
+#define CMD_B_NODE_OPEN_BASE                    0x30    /* 打开节点 */
+#define CMD_B_NODE_CLOSE_BASE                   0x40    /* 关闭节点 */
 
-#define RESP_B_PACKET_MAX_SIZE                 16      /* 从FPGA上来的包大小固定为16字节 */
-#define RESP_B_GET_PORT_ID(header)             ((header) >> 4) & 0xF
-#define RESP_B_GET_DATA_LEN(header)            (header) & 0xF
-#define RESP_B_DATA_LEN_MAX                    10      /* 在16字节包中DataLength最多为10个字节 */
+#define RESP_B_PACKET_MAX_SIZE                  16      /* 从FPGA上来的包大小固定为16字节 */
+#define RESP_B_GET_PORT_ID(header)              ((header) >> 4) & 0xF
+#define RESP_B_GET_DATA_LEN(header)             (header) & 0xF
+#define RESP_B_DATA_LEN_MAX                     10      /* 在16字节包中DataLength最多为10个字节 */
 
-#define RESP_B_HEADER_LEN                      5
-#define RESP_B_PORTID_DATALEN_INDEX            0
-#define RESP_B_TIME_STAMP_INDEX                1
-#define RESP_B_TIME_STAMP_WIDTH                4
-#define RESP_B_CURRENT_INDEX                   RESP_B_HEADER_LEN
-#define RESP_B_CURRENT_WIDTH                   2
-#define RESP_B_TYPE_INDEX                      RESP_B_HEADER_LEN + NODE_PAYLOAD_TYPE_INDEX
-#define RESP_B_EVEN_CHECK_INDEX                (RESP_B_PACKET_MAX_SIZE - 1)
+#define RESP_B_HEADER_LEN                       5
+#define RESP_B_PORTID_DATALEN_INDEX             0
+#define RESP_B_TIME_STAMP_INDEX                 1
+#define RESP_B_TIME_STAMP_WIDTH                 4
+#define RESP_B_CURRENT_INDEX                    RESP_B_HEADER_LEN
+#define RESP_B_CURRENT_WIDTH                    2
+#define RESP_B_TYPE_INDEX                       RESP_B_HEADER_LEN + NODE_PAYLOAD_TYPE_INDEX
+#define RESP_B_EVEN_CHECK_INDEX                 (RESP_B_PACKET_MAX_SIZE - 1)
 
-#define RESP_B_PACKET_TYPE_INVALID             0xFF
-#define RESP_B_PACKET_TYPE_CURRENT             0xF
+#define RESP_B_PACKET_TYPE_INVALID              0xFF
+#define RESP_B_PACKET_TYPE_CURRENT              0xF
 
 /******************************************************************
                              Server层
@@ -139,15 +139,18 @@
     < PacketLength(2B) | PortID(1B) | TimeStampAndNodeLength(2B) |
             TimeStamp(4B) | NodePacket | CRC(2B) >
  ******************************************************************/
-#define CMD_S_HEADER_LEN                       2
+#define CMD_S_HEADER_LEN                        2
 
-#define RESP_S_HEADER_LEN                      9
-#define RESP_S_PACKET_MAX_SIZE                 (NODE_PACKET_MAX_SIZE + RESP_S_HEADER_LEN)
-#define RESP_S_PORT_ID_INDEX                   2
-#define RESP_S_PORT_ID_WIDTH                   1
-#define RESP_S_TIME_NODE_LEN_INDEX             3
-#define RESP_S_TIME_NODE_LEN_WIDTH             2
-#define RESP_S_CRC_WIDTH                       2
-#define RESP_S_TYPE_INDEX                      (NODE_PAYLOAD_TYPE_INDEX + RESP_B_HEADER_LEN)
+#define RESP_S_HEADER_LEN                       9
+#define RESP_S_PACKET_MAX_SIZE                  (NODE_PACKET_MAX_SIZE + RESP_S_HEADER_LEN)
+#define RESP_S_PACKET_LEN_WIDTH                 2
+#define RESP_S_PORT_ID_INDEX                    2
+#define RESP_S_PORT_ID_WIDTH                    1
+#define RESP_S_TIME_NODE_LEN_INDEX              3
+#define RESP_S_TIME_NODE_LEN_WIDTH              2
+#define RESP_S_TIMESTAMP_INDEX                  5
+#define RESP_S_TIMESTAMP_WIDTH                  4
+#define RESP_S_CRC_WIDTH                        2
+#define RESP_S_TYPE_INDEX                       (NODE_PAYLOAD_TYPE_INDEX + RESP_B_HEADER_LEN)
 
 #endif
