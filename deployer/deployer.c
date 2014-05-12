@@ -139,6 +139,8 @@ static Ret deployer_do_one_target(Deployer *thiz, const char *ip_address)
             }
         }
         
+        /* ensure file at start point */
+        lseek(thiz->deploy_file_list[i], 0, SEEK_SET);
         thiz->event_cb_ctx->file = deploy_name;
         if ((ret = ftp_uploader_put(thiz->ftp_uploader, thiz->deploy_file_list[i], deploy_name)) != RET_OK)
         {
