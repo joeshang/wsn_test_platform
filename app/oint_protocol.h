@@ -99,11 +99,15 @@
  对于电流数据包而言：
    DataLength为固定的0xF，Data中前2字节为电流数据，其余填充0x11，
  奇偶校验为固定的0x11
+
+ TIPS:
+   在Board层，使用的是PortID（范围是0-7），而不是NodeID（范围是1-8）
+ 因为对于FPGA而言，对应其0-7的端口（Port），其他两层均为NodeID
  ******************************************************************/
 #define CMD_B_PACKET_MAX_SIZE                   50
 #define CMD_B_HEADER_LEN                        1
 #define CMD_B_PORT_ID_INDEX                     0
-#define CMD_B_TYPE_INDEX                        (NODE_PAYLOAD_TYPE_INDEX + CMD_B_HEADER_LEN)
+#define CMD_B_PAYLOAD_TYPE_INDEX                (NODE_PAYLOAD_TYPE_INDEX + CMD_B_HEADER_LEN)
 
 /* 直接控制FPGA的命令格式为：Base + NodeID - 1 */
 #define CMD_B_REPROG_START_BASE                 0x10    /* 开始重编程 */
@@ -133,10 +137,10 @@
  Server层命令只是简单的在Board层的数据包前加入表示Board层数据包的
  长度字段，格式如下：
               < PacketLength(2B) | BoardPacket >
- Server层回应在Node层回应包前加入包长度字段，PortID字段，TimeStamp
+ Server层回应在Node层回应包前加入包长度字段，NodeID字段，TimeStamp
  +Data长度字段，TimeStamp字段，在Node层回应包尾部加入CRC字段，格式
  如下：
-    < PacketLength(2B) | PortID(1B) | TimeStampAndNodeLength(2B) |
+    < PacketLength(2B) | NodeID(1B) | TimeStampAndNodeLength(2B) |
             TimeStamp(4B) | NodePacket | CRC(2B) >
  ******************************************************************/
 #define CMD_S_HEADER_LEN                        2
@@ -144,8 +148,8 @@
 #define RESP_S_HEADER_LEN                       9
 #define RESP_S_PACKET_MAX_SIZE                  (NODE_PACKET_MAX_SIZE + RESP_S_HEADER_LEN)
 #define RESP_S_PACKET_LEN_WIDTH                 2
-#define RESP_S_PORT_ID_INDEX                    2
-#define RESP_S_PORT_ID_WIDTH                    1
+#define RESP_S_NODE_ID_INDEX                    2
+#define RESP_S_NODE_ID_WIDTH                    1
 #define RESP_S_TIME_NODE_LEN_INDEX              3
 #define RESP_S_TIME_NODE_LEN_WIDTH              2
 #define RESP_S_TIMESTAMP_INDEX                  5

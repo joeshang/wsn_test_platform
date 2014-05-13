@@ -70,15 +70,15 @@ static void handle_command(PacketTransfer *thiz, Command *command)
     if (command->type == NODE_PAYLOAD_TYPE_CMD_POWER_SWITCH)
     {
         uint8_t to_board;
-        payload_data = command->to_board_packet[CMD_B_TYPE_INDEX + 1];
+        payload_data = command->to_board_packet[CMD_B_PAYLOAD_TYPE_INDEX + NODE_PAYLOAD_TYPE_WIDTH];
 
         if (payload_data == 0)  /* 关闭节点 */
         {
-            to_board = CMD_B_NODE_CLOSE_BASE + command->port_id - 1;
+            to_board = CMD_B_NODE_CLOSE_BASE + command->port_id;
         }
         else /* 打开节点 */
         {
-            to_board = CMD_B_NODE_OPEN_BASE + command->port_id - 1;
+            to_board = CMD_B_NODE_OPEN_BASE + command->port_id;
         }
 
         // TODO: gather_board_write(board, &to_board, 1);
@@ -100,7 +100,7 @@ static void handle_command(PacketTransfer *thiz, Command *command)
 
         if (wait_for_response == TRUE)
         {
-            dlist_append(thiz->command_set[command->port_id - 1], (void *)command);
+            dlist_append(thiz->command_set[command->port_id], (void *)command);
         }
     }
 
@@ -148,8 +148,8 @@ static Ret  process_one_command(PacketTransfer *thiz)
     }
 
     /* 3. 根据从上位机接收的命令包初始化Command */
-    command->port_id = command->to_board_packet[CMD_B_PORT_ID_INDEX];
-    command->type = command->to_board_packet[CMD_B_TYPE_INDEX];
+    command->port_id = command->to_board_packet[CMD_B_PORT_ID_INDEX] - 1;
+    command->type = command->to_board_packet[CMD_B_PAYLOAD_TYPE_INDEX];
 
     debug("[PacketTransfer]: receive command -> ");
 #ifdef _DEBUG
@@ -177,14 +177,14 @@ static void handle_response(PacketTransfer *thiz)
     /* 能够响应上位机命令，则点亮节点对应的红灯 */
     if (thiz->response.type == NODE_PAYLOAD_TYPE_RESP_NODE_ID)
     {
-        gather_board_led_red(thiz->gather_board, thiz->response.port_id, LED_ON);
+        gather_board_led_red(thiz->gather_board, thiz->response.port_id + 1, LED_ON);
     }
 
     /* 节点上报数据包，则节点对应的绿灯闪烁一次 */
-    gather_board_led_green(thiz->gather_board, thiz->response.port_id, LED_ON);
+    gather_board_led_green(thiz->gather_board, thiz->response.port_id + 1, LED_ON);
     
     /* 在命令集合中找到回应对应的命令项并删除 */
-    DList *command_list = thiz->command_set[thiz->response.port_id - 1];
+    DList *command_list = thiz->command_set[thiz->response.port_id];
     int command_type = node_type_convert_resp_to_cmd(thiz->response.type);
     int target_index = dlist_find(command_list, response_find_cb, &command_type);
     dlist_delete(command_list, target_index);
@@ -202,7 +202,7 @@ static void send_response(PacketTransfer *thiz)
            RESP_S_PACKET_LEN_WIDTH);
 
     /* 2. 将节点号加入缓冲区 */
-    packet_buf[RESP_S_PORT_ID_INDEX] = thiz->response.port_id;
+    packet_buf[RESP_S_PORT_ID_INDEX] = thiz->response.port_id + 1;
 
     /* 3. 将时间戳+数据长度加入缓冲区 */
     uint16_t timestamp_data_len = RESP_S_TIMESTAMP_WIDTH + thiz->response.node_packet_len;
@@ -289,7 +289,7 @@ static Ret  process_one_response(PacketTransfer *thiz)
         /* 2. 数据方向 */
         thiz->response.node_packet[NODE_DIRECTION_INDEX] = NODE_DIRECTION_FROM_NODE;
         /* 3. 节点号，放在SourcePortID处，表明是哪个节点的电流包 */
-        thiz->response.node_packet[NODE_SRC_NODE_ID_INDEX] = thiz->response.port_id;
+        thiz->response.node_packet[NODE_SRC_NODE_ID_INDEX] = thiz->response.port_id + 1;
         /* 4. Payload长度 */
         thiz->response.node_packet[NODE_PAYLOAD_LEN_INDEX] = NODE_PAYLOAD_TYPE_WIDTH +  RESP_B_CURRENT_WIDTH;
         /* 5. Payload中类型设为电流包 */
