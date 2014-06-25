@@ -18,6 +18,7 @@
 #include "../common/common.h"
 #include "gather_board.h"
 #include "packet_transfer.h"
+#include "reprogrammer.h"
 
 #define BACKLOG         5
 #define CMD_DATA_PORT   9160
@@ -69,16 +70,25 @@ int main(int argc, char *argv[])
     int max_fd;
 
     GatherBoard *gather_board = NULL;
-    if ((gather_board = gather_board_create()) == NULL)
-    {
-        fprintf(stderr, "create GatherBoard failed\n");
-        goto exit;
-    }
-    
+    Reprogrammer *reprogrammer = NULL;
     PacketTransfer *packet_transfer = NULL;
+
+    /*if ((gather_board = gather_board_create()) == NULL)*/
+    /*{*/
+        /*fprintf(stderr, "create GatherBoard failed\n");*/
+        /*goto exit;*/
+    /*}*/
+    gather_board = 1;
+    
     if ((packet_transfer = packet_transfer_create(gather_board)) == NULL)
     {
         fprintf(stderr, "create PacketTransfer failed\n");
+        goto exit;
+    }
+
+    if ((reprogrammer = reprogrammer_create(gather_board)) == NULL)
+    {
+        fprintf(stderr, "create Reprogrammer failed\n");
         goto exit;
     }
 
@@ -146,6 +156,11 @@ int main(int argc, char *argv[])
 
             inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, client_ip_buf, INET_ADDRSTRLEN);
             debug("[Listen]: client %s is connect reprogram port\n", client_ip_buf);
+
+            /* 进入重编程处理流程 */
+            reprogrammer_process(reprogrammer, connect_socket);
+
+            debug("[Listen]: exit reprogram port process\n");
         }
     }
 
@@ -154,8 +169,9 @@ exit:
     close(cmd_data_socket);
     close(reprogram_socket);
 
-    packet_transfer_destroy(packet_transfer);
+    reprogrammer_destroy(reprogrammer);
     gather_board_destroy(gather_board);
+    packet_transfer_destroy(packet_transfer);
 
     return 0;
 }

@@ -109,7 +109,8 @@
 #define CMD_B_PORT_ID_INDEX                     0
 #define CMD_B_PAYLOAD_TYPE_INDEX                (NODE_PAYLOAD_TYPE_INDEX + CMD_B_HEADER_LEN)
 
-/* 直接控制FPGA的命令格式为：Base + NodeID - 1 */
+/* 直接控制FPGA的命令格式为：Base + PortID(NodeID - 1) */
+#define get_board_cmd_with_port_id(base, id)    ((base) + (id))
 #define CMD_B_REPROG_START_BASE                 0x10    /* 开始重编程 */
 #define CMD_B_REPROG_STOP_BASE                  0x20    /* 停止重编程 */
 #define CMD_B_NODE_OPEN_BASE                    0x30    /* 打开节点 */
@@ -156,5 +157,16 @@
 #define RESP_S_TIMESTAMP_WIDTH                  4
 #define RESP_S_CRC_WIDTH                        2
 #define RESP_S_TYPE_INDEX                       (NODE_PAYLOAD_TYPE_INDEX + RESP_B_HEADER_LEN)
+
+/*
+ * OINT的重编程协议
+ */
+/* 格式为：< NodeID(1B) | PrefixString(6B) | HexFileLength(4B) | HexFileContent > */
+#define REPROG_CMD_HEADER_LEN                   11
+#define REPROG_CMD_NODE_ID_INDEX                0
+#define REPROG_CMD_PREFIX_STR_INDEX             1
+#define REPROG_CMD_HEX_FILE_LEN_INDEX           7
+#define REPROG_CMD_HEX_FILE_LEN_WIDTH           4
+#define REPROG_CMD_PREFIX_STR                   "PROGV3"
 
 #endif

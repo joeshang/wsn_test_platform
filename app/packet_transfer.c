@@ -74,18 +74,18 @@ static void handle_command(PacketTransfer *thiz, Command *command)
 
         if (payload_data == 0)  /* 关闭节点 */
         {
-            to_board = CMD_B_NODE_CLOSE_BASE + command->port_id;
+            to_board = get_board_cmd_with_port_id(CMD_B_NODE_CLOSE_BASE, command->port_id);
         }
         else /* 打开节点 */
         {
-            to_board = CMD_B_NODE_OPEN_BASE + command->port_id;
+            to_board = get_board_cmd_with_port_id(CMD_B_NODE_OPEN_BASE, command->port_id);
         }
 
-        // TODO: gather_board_write(board, &to_board, 1);
+        // TODO: gather_board_write(thiz->gather_board, &to_board, 1);
     }
     else
     {
-        // TODO: gather_board_write(board, &command->to_board_packet, command->to_board_packet_len);
+        // TODO: gather_board_write(thiz->board, &command->to_board_packet, command->to_board_packet_len);
         
         int wait_for_response = TRUE;
         switch (command->type)
@@ -124,7 +124,7 @@ static Ret  process_one_command(PacketTransfer *thiz)
     n = read(thiz->uploader_socket, &command->to_board_packet_len, CMD_S_HEADER_LEN);
     if (n == -1)
     {
-        fprintf(stderr, "data uploader read command to_board_packet_len failed\n");
+        fprintf(stderr, "packet transfer read command to_board_packet_len failed\n");
         goto fail;
     }
     else if (n == 0)
@@ -138,7 +138,7 @@ static Ret  process_one_command(PacketTransfer *thiz)
     n = read(thiz->uploader_socket, command->to_board_packet, command->to_board_packet_len);
     if (n == -1)
     {
-        fprintf(stderr, "data uploader read command to_board_packet failed\n");
+        fprintf(stderr, "packet transfer read command to_board_packet failed\n");
         goto fail;
     }
     else if (n == 0)
@@ -202,7 +202,7 @@ static void send_response(PacketTransfer *thiz)
            RESP_S_PACKET_LEN_WIDTH);
 
     /* 2. 将节点号加入缓冲区 */
-    packet_buf[RESP_S_PORT_ID_INDEX] = thiz->response.port_id + 1;
+    packet_buf[RESP_S_NODE_ID_INDEX] = thiz->response.port_id + 1;
 
     /* 3. 将时间戳+数据长度加入缓冲区 */
     uint16_t timestamp_data_len = RESP_S_TIMESTAMP_WIDTH + thiz->response.node_packet_len;

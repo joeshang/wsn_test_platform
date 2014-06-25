@@ -18,7 +18,7 @@ typedef Ret (*HexLineDataCallBack)(int addr, const unsigned char *buf, int lengt
 struct _HexParser;
 typedef struct _HexParser HexParser;
 
-HexParser *hex_parser_create(HexLineDataCallBack lien_data_cb, void *cb_ctx);
+HexParser *hex_parser_create(HexLineDataCallBack line_data_cb, void *cb_ctx);
 void hex_parser_destroy(HexParser *thiz);
 
 Ret hex_parser_process_file(HexParser *thiz, FILE *fd);

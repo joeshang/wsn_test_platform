@@ -19,8 +19,8 @@
 #include "gather_board.h"
 
 #define DEV_NAME_GPIO           "/dev/oint_gpio"
-#define DEV_NAME_SPI_READ
-#define DEV_NAME_SPI_WRITE      
+#define DEV_NAME_SPI_WRITE      "/dev/spidev0.0"    /* 使用SPI0控制器 */
+#define DEV_NAME_SPI_READ       "/dev/spidev1.0"    /* 使用SPI1控制器 */
 
 #define LED_MIN_INDEX           1
 #define LED_MAX_INDEX           8
@@ -47,8 +47,8 @@ static int led_ioctl_command[] = {
 struct _GatherBoard
 {
     int gpio_fd;
-    int spi_read_fd;
     int spi_write_fd;
+    int spi_read_fd;
 };
 
 GatherBoard *gather_board_create()
@@ -56,22 +56,37 @@ GatherBoard *gather_board_create()
     debug("[GatherBoard]: create\n");
 
     GatherBoard *thiz = (GatherBoard *)malloc(sizeof(GatherBoard));
-
-    if (thiz != NULL)
+    if (thiz == NULL)
     {
-        /* open gpio driver */
-        if ((thiz->gpio_fd = open(DEV_NAME_GPIO, O_RDWR)) == -1)
-        {
-            fprintf(stderr, "open device %s failed\n", DEV_NAME_GPIO);
-            exit(EXIT_FAILURE);
-        }
+        fprintf(stderr, "malloc GatherBoard failed: %s\n", strerror(errno));
+        goto fail;
+    }
 
-        /* open spi read driver */
-        /* open spi write driver */
+    /* open gpio driver */
+    if ((thiz->gpio_fd = open(DEV_NAME_GPIO, O_RDWR)) == -1)
+    {
+        fprintf(stderr, "open device %s failed\n", DEV_NAME_GPIO);
+        goto fail;
+    }
 
+    /* open spi read driver */
+    if ((thiz->spi_read_fd = open(DEV_NAME_SPI_READ, O_RDWR)) == -1)
+    {
+        fprintf(stderr, "open device %s failed\n", DEV_NAME_SPI_READ);
+        goto fail;
+    }
+
+    /* open spi write driver */
+    if ((thiz->spi_write_fd = open(DEV_NAME_SPI_WRITE, O_RDWR)) == -1)
+    {
+        fprintf(stderr, "open device %s failed\n", DEV_NAME_SPI_WRITE);
+        goto fail;
     }
 
     return thiz;
+
+fail:
+    return NULL;
 }
 
 void gather_board_destroy(GatherBoard *thiz)
@@ -171,3 +186,12 @@ Ret  gather_board_reset_fpga(GatherBoard *thiz)
 
     return RET_OK;
 }
+
+Ret  gather_board_read()
+{
+}
+
+Ret  gather_board_write()
+{
+}
+
